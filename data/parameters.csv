@@ -1,0 +1,24 @@
+name,description,unit,basis,region,year,distribution,low,mode,high,source,locator,confidence,notes
+W_direct_global,Global AI direct water withdrawal,m^3/yr,withdrawal,global,2027,uniform,4.2e9,5.4e9,6.6e9,"Ren et al., ""Making AI Less Thirsty""",arXiv:2304.03271,B,Reported 4.2-6.6 billion m^3 in 2027. Basis is withdrawal.
+W_indirect_global,Global AI indirect water withdrawal,m^3/yr,withdrawal,global,2027,fixed,0.0,0.0,0.0,PLACEHOLDER,n/a,C,Indirect withdrawal not estimated in primary source; set to zero.
+g_global,Global AI water use net annual growth rate,dimensionless,n/a,global,2027,triangular,0.05,0.15,0.25,PLACEHOLDER,n/a,C,Uncertain growth projection for global AI water withdrawal.
+G_global,Years global AI water growth continues before plateau,yr,n/a,global,2027,triangular,5.0,10.0,15.0,PLACEHOLDER,n/a,C,Placeholder growth duration before plateau.
+W_direct_us,US data center direct water consumption,gal/yr,consumption,US,2023,triangular,1.5e10,1.74e10,2.0e10,"LBNL, 2024 United States Data Center Energy Usage Report",LBNL-2001637,A,Direct consumption approx 17.4 billion gallons in 2023.
+W_indirect_us,US data center indirect water consumption,gal/yr,consumption,US,2023,triangular,1.9e11,2.11e11,2.3e11,"LBNL, 2024 United States Data Center Energy Usage Report",LBNL-2001637,A,Indirect electricity water consumption approx 211 billion gallons in 2023.
+g_us,US data center water consumption annual growth rate,dimensionless,n/a,US,2023,triangular,0.15,0.20,0.32,"LBNL, 2024 United States Data Center Energy Usage Report",LBNL-2001637,B,Derived from 2028 projection range of 2x-4x 2023 direct level.
+G_us,Years US data center water growth continues before plateau,yr,n/a,US,2023,triangular,5.0,10.0,15.0,PLACEHOLDER,n/a,C,Placeholder growth duration before plateau.
+p_desal,Deployment probability for AI-enabled desalination gains,dimensionless,n/a,global,2027,uniform,0.5,0.8,0.95,PLACEHOLDER,n/a,C,Subjective technology deployment probability.
+alpha_desal,Attribution share of desalination gain to AI,dimensionless,n/a,global,2027,triangular,0.05,0.15,0.30,PLACEHOLDER,n/a,C,Counterfactual attribution fraction.
+rho_desal,Rebound effect for desalination water supply,dimensionless,n/a,global,2027,triangular,0.0,0.10,0.30,PLACEHOLDER,n/a,C,Fractional offset from rebound demand.
+L_desal,Deployment lag for desalination pathway,yr,n/a,global,2027,triangular,3.0,5.0,10.0,PLACEHOLDER,n/a,C,Lag before benefits begin.
+R_desal,Ramp-up duration for desalination pathway,yr,n/a,global,2027,triangular,5.0,10.0,20.0,PLACEHOLDER,n/a,C,Years to ramp from zero to full benefit.
+D_desal,Global desalinated water supply output,m^3/yr,withdrawal,global,2027,triangular,2.5e10,3.5e10,4.5e10,PLACEHOLDER,n/a,C,Global desalination output adds supply; does not save water.
+theta_desal,Fractional supply increase from AI-enabled efficiency,dimensionless,n/a,global,2027,triangular,0.01,0.05,0.15,PLACEHOLDER,"Elimelech & Phillip, Science 2011",C,Context: RO is near thermodynamic energy limit so gains are bounded.
+p_solar_food,Deployment probability for solar food / electro-ag,dimensionless,n/a,global,2027,uniform,0.1,0.3,0.6,PLACEHOLDER,n/a,C,Subjective deployment probability for nascent technology.
+alpha_solar_food,Attribution share of electro-ag water savings to AI,dimensionless,n/a,global,2027,triangular,0.10,0.25,0.50,PLACEHOLDER,n/a,C,Attribution of biotechnology/process gains to AI.
+rho_solar_food,Rebound effect for solar food,dimensionless,n/a,global,2027,triangular,0.0,0.10,0.40,PLACEHOLDER,n/a,C,Rebound consumption fraction.
+L_solar_food,Deployment lag for solar food pathway,yr,n/a,global,2027,triangular,5.0,10.0,15.0,PLACEHOLDER,n/a,C,Lag before industrial-scale food synthesis deployment.
+R_solar_food,Ramp-up duration for solar food pathway,yr,n/a,global,2027,triangular,5.0,10.0,20.0,PLACEHOLDER,n/a,C,Years to scale global adoption.
+phi_solar_food,Share of food water demand displaced by solar food,dimensionless,n/a,global,2027,triangular,0.005,0.02,0.08,PLACEHOLDER,n/a,C,Fraction of global agriculture displaced.
+A_solar_food,Global agricultural freshwater withdrawal,m^3/yr,withdrawal,global,2027,triangular,2.0e12,2.8e12,3.5e12,MISSING,FAO AQUASTAT,C,FAO reports ~70% of freshwater withdrawals is agriculture; absolute denominator missing.
+r_solar_food,Water intensity of solar food relative to conventional,dimensionless,n/a,global,2027,triangular,0.05,0.20,0.50,MISSING,"Jiao et al., Joule 2024",C,Joule 2024 reports 4% electro-ag lab energy efficiency; water intensity r is missing.

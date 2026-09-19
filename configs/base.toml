@@ -1,0 +1,9 @@
+# Default scenario configuration for AI Water Break-Even Model
+T = 50
+start_year = 2027
+N = 100000
+seed = 42
+k = 0
+cost_basis = "global_withdrawal"
+allow_mixed_basis = false
+strict = false
