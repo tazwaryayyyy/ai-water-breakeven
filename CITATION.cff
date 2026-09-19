@@ -3,12 +3,10 @@ message: "If you use this model or code, please cite it as below."
 title: "AI Water Break-Even: A Monte Carlo Scenario Model"
 version: 0.1.0
 date-released: 2026-01-01
-url: "https://github.com/placeholder/ai-water-breakeven"
+url: "https://github.com/tazwaryayyyy/ai-water-breakeven"
 authors:
-  - family-names: ""
-    given-names: ""
-    affiliation: ""
-    orcid: ""
+  - name: "Tazwar"
+    alias: "tazwaryayyyy"
 keywords:
   - artificial intelligence
   - water resources

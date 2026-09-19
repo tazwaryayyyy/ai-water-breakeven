@@ -9,12 +9,18 @@ description = "Monte Carlo break-even scenario model for AI water use and AI-ena
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
+authors = [
+    { name = "Tazwar" }
+]
 dependencies = [
     "numpy>=1.26.0",
     "scipy>=1.11.0",
     "pandas>=2.1.0",
     "matplotlib>=3.8.0",
 ]
+
+[project.urls]
+Repository = "https://github.com/tazwaryayyyy/ai-water-breakeven"
 
 [project.optional-dependencies]
 analysis = [

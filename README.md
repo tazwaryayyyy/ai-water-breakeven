@@ -7,7 +7,7 @@ This package implements a Monte Carlo scenario model to test what conditions wou
 Requires Python 3.11 or higher.
 
 ```bash
-git clone https://github.com/placeholder/ai-water-breakeven.git
+git clone https://github.com/tazwaryayyyy/ai-water-breakeven.git
 cd ai-water-breakeven
 pip install -e .
 ```
@@ -74,7 +74,8 @@ The model evaluates aggregated volumetric balances and does not account for loca
 ```bibtex
 @software{ai_water_breakeven_2026,
   title = {AI Water Break-Even: A Monte Carlo Scenario Model},
+  author = {Tazwar},
   year = {2026},
-  url = {https://github.com/placeholder/ai-water-breakeven}
+  url = {https://github.com/tazwaryayyyy/ai-water-breakeven}
 }
 ```
