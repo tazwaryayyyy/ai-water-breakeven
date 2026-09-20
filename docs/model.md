@@ -7,6 +7,11 @@
 - **Water Consumption**: The portion of withdrawn water permanently removed from the immediate aquatic ecosystem through evaporation, transpiration, incorporation into manufactured goods or agricultural biomass, or transfer to another basin.
 - **Cross-Basis Comparison**: Withdrawing one cubic meter of water is physically and ecologically distinct from consuming one cubic meter. Consequently, mixing cost and benefit metrics across different physical bases without an explicit accounting bridge yields spurious balances. The model enforces basis consistency by default.
 
+### Region and Basis Scenario Dimensions
+- **Region**: A run selects either `global` or `us` cost rows and benefit rows with the same region label.
+- **Basis**: A run selects either `withdrawal` or `consumption` rows, together with rows labelled `n/a`; it does not select a row on the other physical basis.
+- **Global Cost Scope**: The Li et al. global cost rows are scope 1+2 combined figures. `W_indirect_global` is zero by construction, and $k$ does not create a direct-only global case.
+
 ### Direct versus Indirect Water Use
 - **Direct Water Use ($W_{\text{direct}}$)**: On-site water consumed or withdrawn for cooling data center compute facilities (e.g., evaporative cooling towers, direct-to-chip closed-loop cooling replenishment).
 - **Indirect Water Use ($W_{\text{indirect}}$)**: Off-site water consumed or withdrawn in generating the thermal and hydroelectric power that supplies electricity to the compute facilities.
@@ -47,7 +52,7 @@ For each pathway $i$ (e.g., desalination efficiency, solar food displacement):
      $\phi$ is the share of conventional agricultural production displaced, $A$ is global agricultural water withdrawal, and $r$ is the relative water intensity of synthesized food compared to conventional farming.
    - **Desalination Supply Expansion**:
      $$\text{Gross}_{\text{desal}} = D \cdot \theta$$
-     $D$ is global desalinated water output, and $\theta$ is the fractional increase in supply attributable to AI optimization and energy-reduction advances. **Important Note**: Desalination adds water supply to coastal regions; it does not reduce existing freshwater demand or consumption.
+    $D$ is global desalinated water output, and $\theta$ is the fractional increase in supply attributable to AI optimization and energy-reduction advances. Desalination adds supply to coastal regions; it does not reduce existing freshwater demand or consumption. Under a consumption basis it is therefore represented as a supply credit, not as a consumption reduction.
 
 ### Cumulative Balance and Metrics
 The cumulative net water balance from year 1 to year $t$ is:

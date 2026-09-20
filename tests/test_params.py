@@ -2,7 +2,13 @@
 
 import pytest
 
-from ai_water_breakeven.params import Parameter, load_parameters, validate_parameters
+from ai_water_breakeven.params import (
+    Parameter,
+    load_parameters,
+    missing_rows_for_combination,
+    select_scenario_parameters,
+    validate_parameters,
+)
 
 
 @pytest.fixture
@@ -129,17 +135,26 @@ def test_validation_rejects_unknown_distributions(base_params):
 
 
 def test_validation_basis_matching(base_params):
-    """Test 7d: Mixed basis without explicit flag fails, but succeeds when permitted."""
-    # US data center consumption vs agricultural withdrawal
+    """A selected scenario never combines a US cost set with global benefit rows."""
     with pytest.raises(ValueError, match="Basis mismatch:"):
         validate_parameters(base_params, cost_basis="us_consumption", allow_mixed_basis=False)
 
-    # Allowed with flag
-    errs, is_mixed = validate_parameters(
-        base_params, cost_basis="us_consumption", allow_mixed_basis=True
-    )
-    assert len(errs) == 0
-    assert is_mixed is True
+    missing = missing_rows_for_combination(base_params, "us", "consumption")
+    assert missing == [
+        "p_desal", "alpha_desal", "rho_desal", "L_desal", "R_desal", "D_desal",
+        "theta_desal", "p_solar_food", "alpha_solar_food", "rho_solar_food",
+        "L_solar_food", "R_solar_food", "phi_solar_food", "A_solar_food", "r_solar_food",
+    ]
+
+
+def test_basis_selection_uses_matching_or_na_rows(base_params):
+    """Global consumption uses consumption rows and n/a rows, never withdrawal rows."""
+    selected, missing = select_scenario_parameters(base_params, "global", "consumption")
+    assert not missing
+    assert selected["W_direct"].name == "W_direct_global_consumption"
+    assert selected["A_solar_food"].name == "A_solar_food_consumption"
+    assert selected["D_desal"].basis == "n/a"
+    assert all(p.basis in {"consumption", "n/a"} for p in selected.values())
 
 
 def test_validation_strict_mode_rejects_unverified_inputs(base_params):

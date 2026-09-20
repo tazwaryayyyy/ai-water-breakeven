@@ -15,37 +15,16 @@ from ai_water_breakeven.model import (
     find_annual_crossover,
     find_sustained_breakeven,
 )
-from ai_water_breakeven.params import Parameter
+from ai_water_breakeven.params import Parameter, resolve_region_basis, select_scenario_parameters
 from ai_water_breakeven.sample import create_scenario_rng, sample_parameter_matrix
-
-BENEFIT_KEYS = [
-    "p_desal",
-    "alpha_desal",
-    "rho_desal",
-    "L_desal",
-    "R_desal",
-    "D_desal",
-    "theta_desal",
-    "p_solar_food",
-    "alpha_solar_food",
-    "rho_solar_food",
-    "L_solar_food",
-    "R_solar_food",
-    "phi_solar_food",
-    "A_solar_food",
-    "r_solar_food",
-]
-
-
-def _get_active_keys(pfx: str) -> List[str]:
-    return [f"W_direct_{pfx}", f"W_indirect_{pfx}", f"g_{pfx}", f"G_{pfx}"] + BENEFIT_KEYS
-
 
 @dataclass
 class SimulationResults:
     t_horizon: int
     n_samples: int
     cost_basis: str
+    region: str
+    basis: str
     cost_scope: str
     k_switch: float
     time_steps: np.ndarray
@@ -56,6 +35,7 @@ class SimulationResults:
     desal_benefits: np.ndarray
     solar_food_benefits: np.ndarray
     sampled_params: Dict[str, np.ndarray]
+    active_parameters: Dict[str, Parameter]
     has_placeholder: bool
     is_mixed_basis: bool
 
@@ -65,24 +45,31 @@ def run_simulation(
     t_horizon: int = 50,
     n_samples: int = 100000,
     k_switch: float = 0.0,
-    cost_basis: str = "global_withdrawal",
+    cost_basis: str | None = None,
     seed: int = 42,
     scenario_idx: int = 0,
     allow_mixed_basis: bool = False,
+    region: str | None = None,
+    basis: str = "withdrawal",
 ) -> SimulationResults:
     """Execute vectorized Monte Carlo break-even simulation across an (N, T) array."""
     rng = create_scenario_rng(seed, scenario_idx)
     t_steps = np.arange(1, t_horizon + 1)
-    pfx = "us" if "us" in cost_basis.lower() else "global"
-    keys = _get_active_keys(pfx)
-    s, b = sample_parameter_matrix([params[k] for k in keys if k in params], n_samples, rng)
+    scenario_region, scenario_basis = resolve_region_basis(region or "global", basis, cost_basis)
+    active, missing = select_scenario_parameters(params, scenario_region, scenario_basis)
+    if missing:
+        raise ValueError(
+            f"Missing rows for region={scenario_region}, basis={scenario_basis}: {', '.join(missing)}"
+        )
+    raw_samples, b = sample_parameter_matrix(list(active.values()), n_samples, rng)
+    s = {role: raw_samples[p.name] for role, p in active.items()}
     t = t_steps[np.newaxis, :]
     c = calc_cost(
-        s[f"W_direct_{pfx}"][:, None],
-        s[f"W_indirect_{pfx}"][:, None],
-        k_switch,
-        s[f"g_{pfx}"][:, None],
-        s[f"G_{pfx}"][:, None],
+        s["W_direct"][:, None],
+        s["W_indirect"][:, None],
+        1.0 if scenario_region == "global" else k_switch,
+        s["g"][:, None],
+        s["G"][:, None],
         t,
     )
     bd = calc_benefit_desal(
@@ -108,14 +95,15 @@ def run_simulation(
     )
     tot = bd + bf
     nb = calc_net_balance(tot, c)
-    cb = params[f"W_direct_{pfx}"].basis
-    cost_scope = "scope 1+2 combined" if pfx == "global" else (
+    cost_scope = "scope 1+2 combined" if scenario_region == "global" else (
         "direct only" if k_switch == 0 else "direct + electricity"
     )
     return SimulationResults(
         t_horizon,
         n_samples,
-        cost_basis,
+        f"{scenario_region}_{scenario_basis}",
+        scenario_region,
+        scenario_basis,
         cost_scope,
         k_switch,
         t_steps,
@@ -125,9 +113,10 @@ def run_simulation(
         nb[:, -1],
         bd,
         bf,
-        s,
-        any(params[n].is_placeholder_or_missing for n in keys if n in params),
-        cb != "n/a" and cb != params["A_solar_food"].basis,
+        raw_samples,
+        active,
+        any(p.is_placeholder_or_missing for p in active.values()),
+        False,
     )
 
 
@@ -210,17 +199,28 @@ def compute_tornado(
     params: Dict[str, Parameter],
     t_horizon: int = 50,
     k_switch: float = 0.0,
-    cost_basis: str = "global_withdrawal",
+    cost_basis: str | None = None,
+    region: str | None = None,
+    basis: str = "withdrawal",
 ) -> pd.DataFrame:
     """Evaluate one-at-a-time low/high sensitivity on final net water balance N(T)."""
-    pfx = "us" if "us" in cost_basis.lower() else "global"
-    keys = _get_active_keys(pfx)
-    b_vals = {k: params[k].mode for k in keys if k in params}
+    scenario_region, scenario_basis = resolve_region_basis(region or "global", basis, cost_basis)
+    active, missing = select_scenario_parameters(params, scenario_region, scenario_basis)
+    if missing:
+        raise ValueError(
+            f"Missing rows for region={scenario_region}, basis={scenario_basis}: {', '.join(missing)}"
+        )
+    b_vals = {k: p.mode for k, p in active.items()}
     t = np.arange(1, t_horizon + 1)[np.newaxis, :]
 
     def ev(p: Dict[str, float]) -> float:
         c = calc_cost(
-            p[f"W_direct_{pfx}"], p[f"W_indirect_{pfx}"], k_switch, p[f"g_{pfx}"], p[f"G_{pfx}"], t
+            p["W_direct"],
+            p["W_indirect"],
+            1.0 if scenario_region == "global" else k_switch,
+            p["g"],
+            p["G"],
+            t,
         )
         bd = calc_benefit_desal(
             p["p_desal"],
@@ -247,9 +247,9 @@ def compute_tornado(
 
     base = ev(b_vals)
     rows = []
-    for k in keys:
-        if k in params:
-            vl, vh = ev({**b_vals, k: params[k].low}), ev({**b_vals, k: params[k].high})
+    for k, param in active.items():
+        if k in active:
+            vl, vh = ev({**b_vals, k: param.low}), ev({**b_vals, k: param.high})
             rows.append(
                 {"parameter": k, "base": base, "val_low": vl, "val_high": vh, "swing": abs(vh - vl)}
             )

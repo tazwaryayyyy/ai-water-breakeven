@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Tuple
+import warnings
 
 import pandas as pd
 
@@ -10,6 +11,26 @@ from ai_water_breakeven.model import gallons_to_m3
 
 VALID_DISTRIBUTIONS = {"fixed", "uniform", "triangular", "lognormal"}
 VALID_BASES = {"withdrawal", "consumption", "n/a"}
+VALID_REGIONS = {"global", "us"}
+
+COST_ROLES = ("W_direct", "W_indirect", "g", "G")
+BENEFIT_ROLES = (
+    "p_desal",
+    "alpha_desal",
+    "rho_desal",
+    "L_desal",
+    "R_desal",
+    "D_desal",
+    "theta_desal",
+    "p_solar_food",
+    "alpha_solar_food",
+    "rho_solar_food",
+    "L_solar_food",
+    "R_solar_food",
+    "phi_solar_food",
+    "A_solar_food",
+    "r_solar_food",
+)
 
 
 @dataclass(frozen=True)
@@ -74,11 +95,82 @@ def load_parameters(csv_path: str | Path) -> Dict[str, Parameter]:
     return params
 
 
+def resolve_region_basis(
+    region: str = "global", basis: str = "withdrawal", cost_basis: str | None = None
+) -> tuple[str, str]:
+    """Normalize independent scenario dimensions and map the deprecated combined value."""
+    legacy = cost_basis or (region if "_" in region else None)
+    if legacy:
+        parts = legacy.lower().split("_", maxsplit=1)
+        if len(parts) != 2 or parts[0] not in VALID_REGIONS or parts[1] not in VALID_BASES:
+            raise ValueError(f"Invalid legacy cost_basis '{legacy}'")
+        warnings.warn(
+            "cost_basis is deprecated; use separate region and basis config keys.",
+            UserWarning,
+            stacklevel=2,
+        )
+        return parts[0], parts[1]
+    return region.lower(), basis.lower()
+
+
+def _role_candidates(role: str, region: str) -> tuple[str, ...]:
+    """Return accepted CSV names for a role, including a future region-specific suffix."""
+    if role in ("W_direct", "W_indirect", "g", "G"):
+        return (f"{role}_{region}",)
+    return (role, f"{role}_{region}")
+
+
+def select_scenario_parameters(
+    params: Dict[str, Parameter], region: str, basis: str
+) -> tuple[Dict[str, Parameter], List[str]]:
+    """Select only rows compatible with one region and one physical water basis."""
+    selected: Dict[str, Parameter] = {}
+    missing: List[str] = []
+    for role in (*COST_ROLES, *BENEFIT_ROLES):
+        names = _role_candidates(role, region)
+        candidates = [
+            p
+            for name, p in params.items()
+            if (name in names or name.startswith(f"{names[0]}_"))
+            and p.region.lower() == region
+            and p.basis in {basis, "n/a"}
+        ]
+        if len(candidates) == 1:
+            selected[role] = candidates[0]
+        elif not candidates:
+            missing.append(role)
+        else:
+            missing.append(f"{role} (ambiguous matching rows)")
+    return selected, missing
+
+
+def missing_rows_for_combination(
+    params: Dict[str, Parameter], region: str, basis: str
+) -> List[str]:
+    """List the required logical rows absent from a requested scenario combination."""
+    _, missing = select_scenario_parameters(params, region, basis)
+    return missing
+
+
+def available_combinations(params: Dict[str, Parameter]) -> List[tuple[str, str]]:
+    """Return cost-row region/basis combinations in deterministic order."""
+    return sorted(
+        {
+            (p.region.lower(), p.basis)
+            for name, p in params.items()
+            if name.startswith("W_direct_") and p.basis != "n/a"
+        }
+    )
+
+
 def validate_parameters(
     params: Dict[str, Parameter],
-    cost_basis: str = "global_withdrawal",
+    region: str = "global",
+    basis: str = "withdrawal",
     strict: bool = False,
     allow_mixed_basis: bool = False,
+    *,
+    cost_basis: str | None = None,
 ) -> Tuple[List[str], bool]:
     """Validate distribution names, ordering, signs, physical basis matching, and sources."""
     errors: List[str] = []
@@ -96,22 +188,15 @@ def validate_parameters(
         ):
             errors.append(f"'{name}': invalid domain/sign")
 
-    cost_pfx = "us" if "us" in cost_basis.lower() else "global"
-    c_bases = {
-        params[c].basis
-        for c in [f"W_direct_{cost_pfx}", f"W_indirect_{cost_pfx}"]
-        if c in params and params[c].basis != "n/a"
-    }
-    b_bases = {
-        params[b].basis
-        for b in ["D_desal", "A_solar_food"]
-        if b in params and params[b].basis != "n/a"
-    }
-    mixed = bool(c_bases and b_bases and c_bases != b_bases)
-    if mixed and not allow_mixed_basis:
-        errors.append(
-            f"Basis mismatch: cost {c_bases} vs benefit {b_bases}. Pass --allow-mixed-basis."
-        )
+    region, basis = resolve_region_basis(region, basis, cost_basis)
+    if region not in VALID_REGIONS or basis not in VALID_BASES - {"n/a"}:
+        errors.append(f"Invalid scenario combination: region={region}, basis={basis}")
+    else:
+        _, missing = select_scenario_parameters(params, region, basis)
+        if missing:
+            errors.append(
+                f"Basis mismatch: missing rows for region={region}, basis={basis}: {', '.join(missing)}"
+            )
 
     if strict:
         for name, p in params.items():
@@ -120,4 +205,5 @@ def validate_parameters(
 
     if errors:
         raise ValueError("Parameter validation failed:\n  - " + "\n  - ".join(errors))
-    return errors, mixed
+    # Mixed physical bases cannot be selected. This retained return value is false by construction.
+    return errors, False
