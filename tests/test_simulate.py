@@ -7,7 +7,7 @@ import pytest
 
 from ai_water_breakeven.params import Parameter, load_parameters
 from ai_water_breakeven.sample import sample_inverse_cdf, sample_parameter_matrix
-from ai_water_breakeven.simulate import compute_summary_metrics, run_simulation
+from ai_water_breakeven.simulate import compute_summary_metrics, run_simulation, wilson_interval
 
 
 @pytest.fixture
@@ -77,3 +77,12 @@ def test_bernoulli_frequency_matches_probability():
     se = np.sqrt(p_target * (1.0 - p_target) / n)
 
     assert abs(empirical_p - p_target) <= 3.0 * se
+
+
+def test_wilson_interval_contains_estimate_and_handles_zero_count():
+    """Wilson intervals are bounded, cover the estimate, and retain edge uncertainty."""
+    low, high = wilson_interval(37, 100)
+    assert 0.0 <= low <= 0.37 <= high <= 1.0
+    low_zero, high_zero = wilson_interval(0, 100000)
+    assert low_zero == 0.0
+    assert np.isclose(high_zero, 3.84e-5, rtol=0.03)

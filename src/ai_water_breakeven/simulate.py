@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
-from scipy.stats import rankdata
+from scipy.stats import binomtest, rankdata
 
 from ai_water_breakeven.model import (
     calc_benefit_desal,
@@ -145,10 +145,9 @@ def compute_summary_metrics(res: SimulationResults) -> Dict[str, Any]:
     }
     for h in [10, 20, 30, 50]:
         if h <= res.t_horizon:
-            p = float(np.mean(be <= h))
-            sm[f"p_breakeven_yr{h}"], sm[f"mcse_yr{h}"] = p, float(np.sqrt(p * (1.0 - p) / n))
-    p_never = float(np.mean(np.isnan(be)))
-    sm["p_never"], sm["mcse_never"] = p_never, float(np.sqrt(p_never * (1.0 - p_never) / n))
+            count = int(np.sum(be <= h))
+            _add_probability_metrics(sm, f"breakeven_yr{h}", count, n)
+    _add_probability_metrics(sm, "never", int(np.sum(np.isnan(be))), n)
     succ = be[~np.isnan(be)]
     sm["be_year_median"] = float(np.median(succ)) if len(succ) else None
     sm["be_year_p5"] = float(np.percentile(succ, 5)) if len(succ) else None
@@ -159,6 +158,34 @@ def compute_summary_metrics(res: SimulationResults) -> Dict[str, Any]:
     sm["share_desal_benefit"] = td / (td + tf) if (td + tf) > 0 else 0.0
     sm["share_solar_food_benefit"] = tf / (td + tf) if (td + tf) > 0 else 0.0
     return sm
+
+
+def wilson_interval(count: int, n_samples: int) -> tuple[float, float]:
+    """Return the binomial 95% Wilson interval for a reported Monte Carlo probability."""
+    if n_samples <= 0:
+        raise ValueError("n_samples must be positive")
+    ci = binomtest(count, n_samples).proportion_ci(confidence_level=0.95, method="wilson")
+    return float(ci.low), float(ci.high)
+
+
+def _add_probability_metrics(
+    summary: Dict[str, Any], label: str, count: int, n_samples: int
+) -> None:
+    """Add point estimate, Wilson interval, count, and non-misleading MCSE fields."""
+    probability = count / n_samples
+    ci_low, ci_high = wilson_interval(count, n_samples)
+    # Preserve the established p_breakeven_yrH / mcse_yrH column names.
+    suffix = label.removeprefix("breakeven_")
+    summary[f"p_{label}"] = probability
+    summary[f"ci_low_{suffix}"] = ci_low
+    summary[f"ci_high_{suffix}"] = ci_high
+    summary[f"count_{suffix}"] = count
+    # A zero binomial MCSE is mathematically correct but misleading as a printed uncertainty.
+    summary[f"mcse_{suffix}"] = (
+        float(np.sqrt(probability * (1.0 - probability) / n_samples))
+        if 0 < count < n_samples
+        else None
+    )
 
 
 def compute_prcc(sampled_params: Dict[str, np.ndarray], y_target: np.ndarray) -> pd.DataFrame:

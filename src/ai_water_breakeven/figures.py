@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from ai_water_breakeven.simulate import SimulationResults
+from ai_water_breakeven.simulate import SimulationResults, wilson_interval
 
 matplotlib.use("Agg")
 CB_BLUE, CB_ORANGE, CB_GREEN, CB_VERMILION, CB_GREY, CB_SKY = (
@@ -100,6 +100,14 @@ def plot_probability_vs_horizon(res: SimulationResults, out: Path) -> None:
         title="Probability of Sustained Break-Even vs. Evaluation Horizon",
     )
     ax.grid(True, linestyle=":", alpha=0.6)
+    labels = []
+    for h in [10, 20, 30, 50]:
+        if h <= res.t_horizon:
+            count = int(np.sum(res.be_years <= h))
+            low, high = wilson_interval(count, res.n_samples)
+            labels.append(f"{h} yr: {count / res.n_samples:.3f} [{low:.3f}, {high:.3f}]")
+    if labels:
+        ax.text(0.02, 0.98, "\n".join(labels), transform=ax.transAxes, va="top", fontsize=8)
     _save(fig, out, res.has_placeholder, res.is_mixed_basis)
 
 
@@ -173,6 +181,7 @@ def plot_scope_comparison(r0: SimulationResults, r1: SimulationResults, out: Pat
         )
         ax.legend(frameon=False)
         ax.grid(True, linestyle=":", alpha=0.6)
+        _annotate_horizon_probability(ax, r0)
         _save(fig, out, r0.has_placeholder, r0.is_mixed_basis)
         return
     ax.plot(
@@ -198,6 +207,22 @@ def plot_scope_comparison(r0: SimulationResults, r1: SimulationResults, out: Pat
     )
     ax.legend(frameon=False)
     ax.grid(True, linestyle=":", alpha=0.6)
+    _annotate_horizon_probability(ax, r0)
     _save(
         fig, out, r0.has_placeholder or r1.has_placeholder, r0.is_mixed_basis or r1.is_mixed_basis
+    )
+
+
+def _annotate_horizon_probability(ax: plt.Axes, res: SimulationResults) -> None:
+    """Label the 30-year probability with its Wilson interval, or the last available horizon."""
+    horizon = min(30, res.t_horizon)
+    count = int(np.sum(res.be_years <= horizon))
+    low, high = wilson_interval(count, res.n_samples)
+    ax.text(
+        0.02,
+        0.98,
+        f"{horizon} yr: {count / res.n_samples:.3f} [{low:.3f}, {high:.3f}]",
+        transform=ax.transAxes,
+        va="top",
+        fontsize=8,
     )
