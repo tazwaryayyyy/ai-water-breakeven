@@ -419,6 +419,20 @@ def compute_cost_trajectory(results: SimulationResults) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def compute_net_balance_by_horizon(results: SimulationResults) -> pd.DataFrame:
+    """Report baseline cumulative net-balance percentiles at fixed horizons within T."""
+    rows = []
+    for horizon in [10, 20, 30, 50]:
+        if horizon <= results.t_horizon:
+            row: Dict[str, Any] = {"horizon": horizon}
+            for percentile in [5, 25, 50, 75, 95]:
+                row[f"N_p{percentile}"] = float(
+                    np.percentile(results.net_balance_trajectories[:, horizon - 1], percentile)
+                )
+            rows.append(row)
+    return pd.DataFrame(rows)
+
+
 def compute_tornado(
     params: Dict[str, Parameter],
     t_horizon: int = 50,

@@ -34,6 +34,7 @@ from ai_water_breakeven.simulate import (
     compute_conditions_table,
     compute_cost_trajectory,
     compute_knockout_table,
+    compute_net_balance_by_horizon,
     compute_prcc,
     compute_summary_metrics,
     compute_tornado,
@@ -165,6 +166,9 @@ def cmd_run(args: argparse.Namespace) -> int:
         res.has_placeholder,
     )
     _write_table(compute_cost_trajectory(res), out / "cost_trajectory.csv", res.has_placeholder)
+    _write_table(
+        compute_net_balance_by_horizon(res), out / "net_balance_by_horizon.csv", res.has_placeholder
+    )
     json.dump(
         _metadata(cfg, Path(args.parameters), Path(args.config), res),
         open(out / "run_metadata.json", "w", encoding="utf-8"),
