@@ -213,6 +213,32 @@ def plot_scope_comparison(r0: SimulationResults, r1: SimulationResults, out: Pat
     )
 
 
+def plot_knockout_probabilities(df: pd.DataFrame, out: Path, has_ph: bool) -> None:
+    """Draw common-random-number knockout probabilities with Wilson intervals."""
+    suffix = "yr30" if "p_breakeven_yr30" in df else "yr" + str(
+        max(int(c.removeprefix("p_breakeven_yr")) for c in df if c.startswith("p_breakeven_yr"))
+    )
+    p_col, low_col, high_col = (
+        f"p_breakeven_{suffix}",
+        f"ci_low_{suffix}",
+        f"ci_high_{suffix}",
+    )
+    sub = df.iloc[::-1]
+    values = sub[p_col].to_numpy()
+    errors = np.vstack((values - sub[low_col].to_numpy(), sub[high_col].to_numpy() - values))
+    fig, ax = plt.subplots(figsize=(8, 4.8))
+    ax.barh(np.arange(len(sub)), values, xerr=errors, color=CB_BLUE, capsize=3)
+    ax.set_yticks(np.arange(len(sub)))
+    ax.set_yticklabels(sub["scenario"])
+    ax.set(
+        xlabel=f"P(sustained break-even by {suffix.removeprefix('yr')} yr), 95% Wilson interval",
+        xlim=(0, 1),
+        title="Common-Random-Number Knockout Scenarios",
+    )
+    ax.grid(axis="x", linestyle=":", alpha=0.6)
+    _save(fig, out, has_ph, False)
+
+
 def _annotate_horizon_probability(ax: plt.Axes, res: SimulationResults) -> None:
     """Label the 30-year probability with its Wilson interval, or the last available horizon."""
     horizon = min(30, res.t_horizon)

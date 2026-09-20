@@ -7,7 +7,12 @@ import pytest
 
 from ai_water_breakeven.params import Parameter, load_parameters
 from ai_water_breakeven.sample import sample_inverse_cdf, sample_parameter_matrix
-from ai_water_breakeven.simulate import compute_summary_metrics, run_simulation, wilson_interval
+from ai_water_breakeven.simulate import (
+    compute_summary_metrics,
+    run_knockout_scenarios,
+    run_simulation,
+    wilson_interval,
+)
 
 
 @pytest.fixture
@@ -86,3 +91,14 @@ def test_wilson_interval_contains_estimate_and_handles_zero_count():
     low_zero, high_zero = wilson_interval(0, 100000)
     assert low_zero == 0.0
     assert np.isclose(high_zero, 3.84e-5, rtol=0.03)
+
+
+def test_common_random_number_ceiling_cannot_delay_break_even(base_params):
+    """The combined ceiling overrides improve or retain every paired sampled run."""
+    results = run_knockout_scenarios(base_params, t_horizon=30, n_samples=1000, seed=19)
+    baseline, ceiling = results["baseline"].be_years, results["ceiling"].be_years
+    paired_base = np.where(np.isnan(baseline), np.inf, baseline)
+    paired_ceiling = np.where(np.isnan(ceiling), np.inf, ceiling)
+    assert np.all(paired_ceiling <= paired_base)
+    for horizon in [10, 20, 30]:
+        assert np.mean(paired_ceiling <= horizon) >= np.mean(paired_base <= horizon)

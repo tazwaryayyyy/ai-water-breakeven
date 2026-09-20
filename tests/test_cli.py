@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from ai_water_breakeven.cli import cmd_figures, cmd_reproduce, cmd_run, cmd_validate
+from ai_water_breakeven.cli import cmd_figures, cmd_knockouts, cmd_reproduce, cmd_run, cmd_validate
 
 
 class DummyArgs:
@@ -77,3 +77,12 @@ def test_cli_reproduce_pipeline(tmp_path):
     p = Path(out_dir)
     assert (p / "summary.json").is_file()
     assert (p / "fig1_breakeven_dist.png").is_file()
+    assert (p / "knockouts.csv").is_file()
+
+
+def test_cli_knockouts(tmp_path):
+    """Knockout output is available as an independent CLI operation."""
+    out_dir = str(tmp_path / "knockout_out")
+    args = DummyArgs(out_dir=out_dir, samples=200, horizon=15)
+    assert cmd_knockouts(args) == 0
+    assert (Path(out_dir) / "knockouts.csv").is_file()

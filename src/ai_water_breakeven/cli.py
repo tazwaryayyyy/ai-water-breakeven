@@ -18,6 +18,7 @@ import ai_water_breakeven
 from ai_water_breakeven.figures import (
     plot_breakeven_distribution,
     plot_net_balance_fan_chart,
+    plot_knockout_probabilities,
     plot_probability_vs_horizon,
     plot_scope_comparison,
     plot_tornado_chart,
@@ -26,11 +27,23 @@ from ai_water_breakeven.params import load_parameters, resolve_region_basis, val
 from ai_water_breakeven.simulate import (
     compute_conditions_table,
     compute_cost_trajectory,
+    compute_knockout_table,
     compute_prcc,
     compute_summary_metrics,
     compute_tornado,
     run_simulation,
+    run_knockout_scenarios,
 )
+
+PLACEHOLDER_NOTICE = "PLACEHOLDER INPUTS - NOT FOR PUBLICATION"
+
+
+def _write_table(df: pd.DataFrame, path: Path, has_placeholder: bool) -> None:
+    """Keep the publication warning visible in every table from unverified inputs."""
+    table = df.copy()
+    if has_placeholder:
+        table["publication_notice"] = PLACEHOLDER_NOTICE
+    table.to_csv(path, index=False)
 
 
 def _file_sha256(p: Path) -> str:
@@ -64,6 +77,7 @@ def _metadata(cfg: Dict[str, Any], p_path: Path, c_path: Path, res: Any) -> Dict
         "placeholder_inputs_used": res.has_placeholder,
         "mixed_basis_used": res.is_mixed_basis,
         "cost_scope": res.cost_scope,
+        "publication_notice": PLACEHOLDER_NOTICE if res.has_placeholder else None,
     }
 
 
@@ -126,16 +140,24 @@ def cmd_run(args: argparse.Namespace) -> int:
     )
 
     summary = compute_summary_metrics(res)
+    if res.has_placeholder:
+        summary["publication_notice"] = PLACEHOLDER_NOTICE
     json.dump(summary, open(out / "summary.json", "w", encoding="utf-8"), indent=2)
-    pd.DataFrame([summary]).to_csv(out / "summary.csv", index=False)
-    compute_prcc(res.sampled_params, res.final_net_balances).to_csv(out / "prcc.csv", index=False)
-    compute_tornado(params, t_h, k_sw, region=region, basis=basis).to_csv(
-        out / "tornado.csv", index=False
+    _write_table(pd.DataFrame([summary]), out / "summary.csv", res.has_placeholder)
+    _write_table(
+        compute_prcc(res.sampled_params, res.final_net_balances), out / "prcc.csv", res.has_placeholder
     )
-    compute_conditions_table(res, cfg.get("conditions_horizon", 30)).to_csv(
-        out / "conditions.csv", index=False
+    _write_table(
+        compute_tornado(params, t_h, k_sw, region=region, basis=basis),
+        out / "tornado.csv",
+        res.has_placeholder,
     )
-    compute_cost_trajectory(res).to_csv(out / "cost_trajectory.csv", index=False)
+    _write_table(
+        compute_conditions_table(res, cfg.get("conditions_horizon", 30)),
+        out / "conditions.csv",
+        res.has_placeholder,
+    )
+    _write_table(compute_cost_trajectory(res), out / "cost_trajectory.csv", res.has_placeholder)
     json.dump(
         _metadata(cfg, Path(args.parameters), Path(args.config), res),
         open(out / "run_metadata.json", "w", encoding="utf-8"),
@@ -173,8 +195,43 @@ def cmd_figures(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_knockouts(args: argparse.Namespace) -> int:
+    """Write scenario knockouts based on one shared sampled matrix."""
+    cfg, params, out = (
+        load_config(Path(args.config)),
+        load_parameters(args.parameters),
+        Path(args.out_dir),
+    )
+    out.mkdir(parents=True, exist_ok=True)
+    region, basis = _scenario_dimensions(cfg, args)
+    t_h, n_s = args.horizon or cfg.get("T", 50), args.samples or cfg.get("N", 100000)
+    validate_parameters(
+        params,
+        region=region,
+        basis=basis,
+        strict=args.strict or cfg.get("strict", False),
+        allow_mixed_basis=args.allow_mixed_basis or cfg.get("allow_mixed_basis", False),
+    )
+    results = run_knockout_scenarios(
+        params,
+        t_h,
+        n_s,
+        cfg.get("k", 0.0),
+        cfg.get("seed", 42),
+        region,
+        basis,
+    )
+    table = compute_knockout_table(results)
+    _write_table(table, out / "knockouts.csv", results["baseline"].has_placeholder)
+    plot_knockout_probabilities(
+        table, out / "fig6_knockouts", results["baseline"].has_placeholder
+    )
+    print(f"Knockout outputs written to {out}")
+    return 0
+
+
 def cmd_reproduce(args: argparse.Namespace) -> int:
-    return cmd_validate(args) or cmd_run(args) or cmd_figures(args)
+    return cmd_validate(args) or cmd_run(args) or cmd_figures(args) or cmd_knockouts(args)
 
 
 def main() -> None:
@@ -186,6 +243,7 @@ def main() -> None:
         ("validate", cmd_validate),
         ("run", cmd_run),
         ("figures", cmd_figures),
+        ("knockouts", cmd_knockouts),
         ("reproduce", cmd_reproduce),
     ]:
         sp = sub.add_parser(name)
@@ -195,10 +253,10 @@ def main() -> None:
         sp.add_argument("--allow-mixed-basis", action="store_true")
         sp.add_argument("--region", choices=["global", "us"], default=None)
         sp.add_argument("--basis", choices=["withdrawal", "consumption"], default=None)
-        if name in ("run", "figures", "reproduce"):
+        if name in ("run", "figures", "knockouts", "reproduce"):
             sp.add_argument("--out-dir", default="results")
             sp.add_argument("--samples", type=int, default=None)
-        if name in ("run", "reproduce"):
+        if name in ("run", "knockouts", "reproduce"):
             sp.add_argument("--horizon", type=int, default=None)
 
     args = p.parse_args()
@@ -206,6 +264,7 @@ def main() -> None:
         "validate": cmd_validate,
         "run": cmd_run,
         "figures": cmd_figures,
+        "knockouts": cmd_knockouts,
         "reproduce": cmd_reproduce,
     }
     sys.exit(cmds[args.command](args))

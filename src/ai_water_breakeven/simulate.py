@@ -55,15 +55,37 @@ def run_simulation(
     basis: str = "withdrawal",
 ) -> SimulationResults:
     """Execute vectorized Monte Carlo break-even simulation across an (N, T) array."""
-    rng = create_scenario_rng(seed, scenario_idx)
-    t_steps = np.arange(1, t_horizon + 1)
     scenario_region, scenario_basis = resolve_region_basis(region or "global", basis, cost_basis)
     active, missing = select_scenario_parameters(params, scenario_region, scenario_basis)
     if missing:
         raise ValueError(
             f"Missing rows for region={scenario_region}, basis={scenario_basis}: {', '.join(missing)}"
         )
-    raw_samples, b = sample_parameter_matrix(list(active.values()), n_samples, rng)
+    raw_samples, deployments = sample_parameter_matrix(
+        list(active.values()), n_samples, create_scenario_rng(seed, scenario_idx)
+    )
+    return _evaluate_samples(
+        active,
+        raw_samples,
+        deployments,
+        t_horizon,
+        k_switch,
+        scenario_region,
+        scenario_basis,
+    )
+
+
+def _evaluate_samples(
+    active: Dict[str, Parameter],
+    raw_samples: Dict[str, np.ndarray],
+    deployments: Dict[str, np.ndarray],
+    t_horizon: int,
+    k_switch: float,
+    scenario_region: str,
+    scenario_basis: str,
+) -> SimulationResults:
+    """Evaluate pre-drawn inputs, keeping sampling separate from scenario modifications."""
+    t_steps = np.arange(1, t_horizon + 1)
     s = {role: raw_samples[p.name] for role, p in active.items()}
     t = t_steps[np.newaxis, :]
     c = calc_cost(
@@ -76,7 +98,7 @@ def run_simulation(
         t,
     )
     bd = calc_benefit_desal(
-        b["s_desal"][:, None],
+        deployments["s_desal"][:, None],
         s["alpha_desal"][:, None],
         s["D_desal"][:, None],
         s["theta_desal"][:, None],
@@ -86,7 +108,7 @@ def run_simulation(
         t,
     )
     bf = calc_benefit_solar_food(
-        b["s_solar_food"][:, None],
+        deployments["s_solar_food"][:, None],
         s["alpha_solar_food"][:, None],
         s["phi_solar_food"][:, None],
         s["A_solar_food"][:, None],
@@ -103,7 +125,7 @@ def run_simulation(
     )
     return SimulationResults(
         t_horizon,
-        n_samples,
+        len(next(iter(raw_samples.values()))),
         f"{scenario_region}_{scenario_basis}",
         scenario_region,
         scenario_basis,
@@ -123,6 +145,132 @@ def run_simulation(
         any(p.is_placeholder_or_missing for p in active.values()),
         False,
     )
+
+
+def _copy_draws(
+    samples: Dict[str, np.ndarray], deployments: Dict[str, np.ndarray]
+) -> tuple[Dict[str, np.ndarray], Dict[str, np.ndarray]]:
+    return ({name: values.copy() for name, values in samples.items()}, {
+        name: values.copy() for name, values in deployments.items()
+    })
+
+
+def _set_prefix(
+    samples: Dict[str, np.ndarray], active: Dict[str, Parameter], prefix: str, value: float
+) -> None:
+    """Set every selected pathway parameter whose logical name starts with a prefix."""
+    for role, param in active.items():
+        if role.startswith(prefix):
+            samples[param.name] = np.full_like(samples[param.name], value, dtype=float)
+
+
+def _set_probability(
+    samples: Dict[str, np.ndarray],
+    deployments: Dict[str, np.ndarray],
+    active: Dict[str, Parameter],
+    role: str,
+    value: float,
+) -> None:
+    """Apply a probability override and its deterministic Bernoulli consequence."""
+    _set_prefix(samples, active, role, value)
+    pathway = "s_desal" if role.endswith("desal") else "s_solar_food"
+    deployments[pathway] = np.full_like(deployments[pathway], value, dtype=float)
+
+
+def _apply_knockout(
+    name: str,
+    samples: Dict[str, np.ndarray],
+    deployments: Dict[str, np.ndarray],
+    active: Dict[str, Parameter],
+) -> None:
+    """Apply one deterministic knockout scenario to copies of the common base draws."""
+    if name in {"alpha_1", "ceiling"}:
+        _set_prefix(samples, active, "alpha_", 1.0)
+    if name in {"success_1", "ceiling"}:
+        _set_prefix(samples, active, "p_", 1.0)
+        for key in deployments:
+            deployments[key] = np.ones_like(deployments[key])
+    if name in {"no_rebound", "ceiling"}:
+        _set_prefix(samples, active, "rho_", 0.0)
+    if name == "no_delay":
+        _set_prefix(samples, active, "L_", 0.0)
+        _set_prefix(samples, active, "R_", 0.0)
+    if name == "flat_cost":
+        for role in ("g", "g2"):
+            samples[active[role].name] = np.zeros_like(samples[active[role].name])
+    if name == "desal_only":
+        _set_probability(samples, deployments, active, "p_solar_food", 0.0)
+    if name == "solar_food_only":
+        _set_probability(samples, deployments, active, "p_desal", 0.0)
+
+
+KNOCKOUT_SCENARIOS = (
+    "baseline",
+    "alpha_1",
+    "success_1",
+    "no_rebound",
+    "ceiling",
+    "no_delay",
+    "flat_cost",
+    "desal_only",
+    "solar_food_only",
+)
+
+
+def run_knockout_scenarios(
+    params: Dict[str, Parameter],
+    t_horizon: int = 50,
+    n_samples: int = 100000,
+    k_switch: float = 0.0,
+    seed: int = 42,
+    region: str = "global",
+    basis: str = "withdrawal",
+) -> Dict[str, SimulationResults]:
+    """Evaluate deterministic knockout columns against one shared Latin-hypercube draw."""
+    active, missing = select_scenario_parameters(params, region, basis)
+    if missing:
+        raise ValueError(f"Missing rows for region={region}, basis={basis}: {', '.join(missing)}")
+    base_samples, base_deployments = sample_parameter_matrix(
+        list(active.values()), n_samples, create_scenario_rng(seed, 0)
+    )
+    results: Dict[str, SimulationResults] = {}
+    for name in KNOCKOUT_SCENARIOS:
+        samples, deployments = _copy_draws(base_samples, base_deployments)
+        _apply_knockout(name, samples, deployments, active)
+        results[name] = _evaluate_samples(
+            active, samples, deployments, t_horizon, k_switch, region, basis
+        )
+    return results
+
+
+def compute_knockout_table(results: Dict[str, SimulationResults]) -> pd.DataFrame:
+    """Summarize common-random-number scenarios against the baseline by fixed horizons."""
+    baseline = compute_summary_metrics(results["baseline"])
+    rows = []
+    for name, result in results.items():
+        summary = compute_summary_metrics(result)
+        row: Dict[str, Any] = {"scenario": name}
+        for horizon in [10, 20, 30, 50]:
+            if horizon <= result.t_horizon:
+                for prefix in ("p_breakeven", "ci_low", "ci_high"):
+                    row[f"{prefix}_yr{horizon}"] = summary[f"{prefix}_yr{horizon}"]
+        row.update(
+            {
+                "p_never": summary["p_never"],
+                "ci_low_never": summary["ci_low_never"],
+                "ci_high_never": summary["ci_high_never"],
+                "be_year_median": summary["be_year_median"],
+                "n_T_p5": summary["n_T_p5"],
+                "n_T_p50": summary["n_T_p50"],
+                "n_T_p95": summary["n_T_p95"],
+                "change_p_breakeven_yr30_vs_baseline": (
+                    summary.get("p_breakeven_yr30", np.nan)
+                    - baseline.get("p_breakeven_yr30", np.nan)
+                ),
+            }
+        )
+        rows.append(row)
+    return pd.DataFrame(rows)
 
 
 def compute_summary_metrics(res: SimulationResults) -> Dict[str, Any]:
