@@ -62,6 +62,7 @@ def _metadata(cfg: Dict[str, Any], p_path: Path, c_path: Path, res: Any) -> Dict
         "sha256_config_toml": _file_sha256(c_path),
         "placeholder_inputs_used": res.has_placeholder,
         "mixed_basis_used": res.is_mixed_basis,
+        "cost_scope": res.cost_scope,
     }
 
 
@@ -109,7 +110,9 @@ def cmd_run(args: argparse.Namespace) -> int:
     pd.DataFrame([summary]).to_csv(out / "summary.csv", index=False)
     compute_prcc(res.sampled_params, res.final_net_balances).to_csv(out / "prcc.csv", index=False)
     compute_tornado(params, t_h, k_sw, c_basis).to_csv(out / "tornado.csv", index=False)
-    compute_conditions_table(res).to_csv(out / "conditions.csv", index=False)
+    compute_conditions_table(res, cfg.get("conditions_horizon", 30)).to_csv(
+        out / "conditions.csv", index=False
+    )
     json.dump(
         _metadata(cfg, Path(args.parameters), Path(args.config), res),
         open(out / "run_metadata.json", "w", encoding="utf-8"),

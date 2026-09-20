@@ -10,7 +10,7 @@
 ### Direct versus Indirect Water Use
 - **Direct Water Use ($W_{\text{direct}}$)**: On-site water consumed or withdrawn for cooling data center compute facilities (e.g., evaporative cooling towers, direct-to-chip closed-loop cooling replenishment).
 - **Indirect Water Use ($W_{\text{indirect}}$)**: Off-site water consumed or withdrawn in generating the thermal and hydroelectric power that supplies electricity to the compute facilities.
-- **Switch Parameter ($k$)**: A scenario switch where $k = 0$ isolates direct facility water use, and $k = 1$ accounts for full scope (direct plus electricity generation indirect water use).
+- **Switch Parameter ($k$)**: A scenario switch where $k = 0$ isolates direct facility water use, and $k = 1$ accounts for direct plus electricity-generation water where the selected cost rows report separate components. Li et al.'s global rows are already scope 1+2 combined and therefore do not use $k$.
 
 ---
 
@@ -64,7 +64,7 @@ $$N(t) = \sum_{\tau=1}^t \left( \sum_i B_i(\tau) - C(\tau) \right)$$
 
 | Parameter | Unit | Basis | Dist | Low | Mode | High | Source | Conf |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| `W_direct_global` | $\text{m}^3/\text{yr}$ | withdrawal | uniform | 4.2e9 | 5.4e9 | 6.6e9 | Ren et al., "Making AI Less Thirsty" | B |
+| `W_direct_global` | $\text{m}^3/\text{yr}$ | withdrawal | uniform | 4.2e9 | 5.4e9 | 6.6e9 | Li, Yang, Islam and Ren, "Making AI Less 'Thirsty'", Communications of the ACM 2025, DOI 10.1145/3724499 (arXiv 2304.03271) | B |
 | `W_indirect_global`| $\text{m}^3/\text{yr}$ | withdrawal | fixed | 0.0 | 0.0 | 0.0 | PLACEHOLDER | C |
 | `g_global` | dimensionless | n/a | triangular | 0.05 | 0.15 | 0.25 | PLACEHOLDER | C |
 | `G_global` | yr | n/a | triangular | 5.0 | 10.0 | 15.0 | PLACEHOLDER | C |

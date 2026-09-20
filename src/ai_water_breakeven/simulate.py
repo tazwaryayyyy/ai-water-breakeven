@@ -46,6 +46,7 @@ class SimulationResults:
     t_horizon: int
     n_samples: int
     cost_basis: str
+    cost_scope: str
     k_switch: float
     time_steps: np.ndarray
     net_balance_trajectories: np.ndarray
@@ -108,10 +109,14 @@ def run_simulation(
     tot = bd + bf
     nb = calc_net_balance(tot, c)
     cb = params[f"W_direct_{pfx}"].basis
+    cost_scope = "scope 1+2 combined" if pfx == "global" else (
+        "direct only" if k_switch == 0 else "direct + electricity"
+    )
     return SimulationResults(
         t_horizon,
         n_samples,
         cost_basis,
+        cost_scope,
         k_switch,
         t_steps,
         nb,
@@ -133,6 +138,7 @@ def compute_summary_metrics(res: SimulationResults) -> Dict[str, Any]:
         "n_samples": n,
         "t_horizon": res.t_horizon,
         "cost_basis": res.cost_basis,
+        "cost_scope": res.cost_scope,
         "k_switch": res.k_switch,
         "has_placeholder": res.has_placeholder,
         "is_mixed_basis": res.is_mixed_basis,
@@ -223,15 +229,18 @@ def compute_tornado(
     return pd.DataFrame(rows).sort_values(by="swing", ascending=False).reset_index(drop=True)
 
 
-def compute_conditions_table(results: SimulationResults) -> pd.DataFrame:
-    """Compute parameter medians and IQRs stratified by break-even success within 30 years."""
-    mask = (results.be_years <= 30.0) & (~np.isnan(results.be_years))
+def compute_conditions_table(
+    results: SimulationResults, conditions_horizon: int = 30
+) -> pd.DataFrame:
+    """Compute parameter medians and IQRs stratified by sustained break-even horizon."""
+    mask = (results.be_years <= conditions_horizon) & (~np.isnan(results.be_years))
     rows = []
     for k, v in results.sampled_params.items():
         s, f = v[mask], v[~mask]
         rows.append(
             {
                 "parameter": k,
+                "conditions_horizon": conditions_horizon,
                 "success_median": float(np.median(s)) if len(s) else np.nan,
                 "success_iqr": float(np.percentile(s, 75) - np.percentile(s, 25))
                 if len(s)

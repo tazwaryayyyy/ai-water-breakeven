@@ -1,5 +1,5 @@
 name,description,unit,basis,region,year,distribution,low,mode,high,source,locator,confidence,notes
-W_direct_global,Global AI direct water withdrawal,m^3/yr,withdrawal,global,2027,uniform,4.2e9,5.4e9,6.6e9,"Ren et al., ""Making AI Less Thirsty""",arXiv:2304.03271,B,Reported 4.2-6.6 billion m^3 in 2027. Basis is withdrawal.
+W_direct_global,Global AI water withdrawal (scope 1+2 combined),m^3/yr,withdrawal,global,2027,uniform,4.2e9,5.4e9,6.6e9,"Li, Yang, Islam and Ren, ""Making AI Less 'Thirsty'"", Communications of the ACM 2025",DOI:10.1145/3724499; arXiv:2304.03271,B,Reported 4.2-6.6 billion m^3 in 2027; combined scope 1+2 rather than direct-only.
 W_indirect_global,Global AI indirect water withdrawal,m^3/yr,withdrawal,global,2027,fixed,0.0,0.0,0.0,PLACEHOLDER,n/a,C,Indirect withdrawal not estimated in primary source; set to zero.
 g_global,Global AI water use net annual growth rate,dimensionless,n/a,global,2027,triangular,0.05,0.15,0.25,PLACEHOLDER,n/a,C,Uncertain growth projection for global AI water withdrawal.
 G_global,Years global AI water growth continues before plateau,yr,n/a,global,2027,triangular,5.0,10.0,15.0,PLACEHOLDER,n/a,C,Placeholder growth duration before plateau.

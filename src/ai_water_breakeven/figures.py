@@ -157,6 +157,24 @@ def plot_tornado_chart(
 def plot_scope_comparison(r0: SimulationResults, r1: SimulationResults, out: Path) -> None:
     fig, ax = plt.subplots(figsize=(7, 4.2))
     t = np.arange(1, r0.t_horizon + 1)
+    if r0.cost_scope == "scope 1+2 combined":
+        ax.plot(
+            t,
+            [float(np.mean(r0.be_years <= s)) for s in t],
+            color=CB_BLUE,
+            lw=2.0,
+            label="scope 1+2 combined (k not applicable)",
+        )
+        ax.set(
+            xlabel="Time Horizon (yr)",
+            ylabel="Cumulative P(Sustained Break-Even)",
+            ylim=(-0.02, 1.02),
+            title=f"Cost Scope: {r0.cost_scope}",
+        )
+        ax.legend(frameon=False)
+        ax.grid(True, linestyle=":", alpha=0.6)
+        _save(fig, out, r0.has_placeholder, r0.is_mixed_basis)
+        return
     ax.plot(
         t,
         [float(np.mean(r0.be_years <= s)) for s in t],

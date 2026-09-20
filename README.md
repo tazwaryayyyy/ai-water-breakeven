@@ -1,5 +1,7 @@
 # AI Water Break-Even
 
+> **Status:** Inputs marked `PLACEHOLDER` or `MISSING` are unsourced. Outputs are illustrative, not findings. Do not cite them.
+
 This package implements a Monte Carlo scenario model to test what conditions would have to hold for AI-enabled water savings to offset AI's own operational water use. It maps quantitative parameter ranges to break-even timing outcomes rather than forecasting future water balances.
 
 ## Installation
@@ -63,11 +65,11 @@ All outputs are written to the specified results directory (default: `results/`)
 - `fig2_p_breakeven_horizon.{png,svg}`: Cumulative sustained break-even probability across evaluation horizons.
 - `fig3_net_balance_fan.{png,svg}`: Simulation trajectory fan chart displaying median, 50%, and 90% envelopes.
 - `fig4_tornado.{png,svg}`: Ranked horizontal sensitivity swing chart across model inputs.
-- `fig5_scope_comparison.{png,svg}`: Break-even probability comparison across direct-only ($k=0$) and full-scope electricity ($k=1$) scenarios.
+- `fig5_scope_comparison.{png,svg}`: Break-even probability comparison across direct-only ($k=0$) and direct-plus-electricity ($k=1$) scenarios when the selected cost rows separate those scopes.
 
 ## Limitations
 
-The model evaluates aggregated volumetric balances and does not account for localized hydrological basin stress. It does not apply intertemporal financial discounting, and parameter attribution shares are user-specified counterfactual modeling choices rather than empirical physical constants. Continuous parameters are sampled independently without macroeconomic correlation structures.
+The model uses global or national aggregate volumes and cannot represent local scarcity or basin conditions. It assumes independent inputs, has no embodied (scope 3) water, and has no financial discounting. Attribution shares are counterfactual modeling choices rather than empirical physical constants.
 
 ## Citation
 
