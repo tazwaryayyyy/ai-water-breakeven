@@ -433,6 +433,33 @@ def compute_net_balance_by_horizon(results: SimulationResults) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def compute_sourcing_priority(results: SimulationResults) -> pd.DataFrame:
+    """Rank sampled inputs by absolute PRCC and retain traceable source metadata."""
+    prcc = compute_prcc(results.sampled_params, results.final_net_balances)
+    parameter_by_name = {p.name: p for p in results.active_parameters.values()}
+    rows = []
+    for _, row in prcc.iterrows():
+        parameter = parameter_by_name.get(row["parameter"])
+        if parameter is None:
+            continue
+        source_upper = parameter.source.upper()
+        status = "MISSING" if "MISSING" in source_upper else (
+            "PLACEHOLDER" if "PLACEHOLDER" in source_upper else "sourced"
+        )
+        rows.append(
+            {
+                "parameter": parameter.name,
+                "prcc": row["prcc"],
+                "abs_prcc": abs(row["prcc"]),
+                "status": status,
+                "confidence": parameter.confidence,
+                "source": parameter.source,
+                "rank_notice": "Ranks depend on the current input ranges and are provisional.",
+            }
+        )
+    return pd.DataFrame(rows).sort_values("abs_prcc", ascending=False).reset_index(drop=True)
+
+
 def compute_tornado(
     params: Dict[str, Parameter],
     t_horizon: int = 50,

@@ -37,6 +37,7 @@ from ai_water_breakeven.simulate import (
     compute_net_balance_by_horizon,
     compute_prcc,
     compute_summary_metrics,
+    compute_sourcing_priority,
     compute_tornado,
     compute_threshold_map,
     run_simulation,
@@ -169,6 +170,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     _write_table(
         compute_net_balance_by_horizon(res), out / "net_balance_by_horizon.csv", res.has_placeholder
     )
+    _write_table(compute_sourcing_priority(res), out / "sourcing_priority.csv", res.has_placeholder)
     json.dump(
         _metadata(cfg, Path(args.parameters), Path(args.config), res),
         open(out / "run_metadata.json", "w", encoding="utf-8"),

@@ -47,6 +47,7 @@ def test_cli_run_and_outputs(tmp_path):
     assert (p / "tornado.csv").is_file()
     assert (p / "conditions.csv").is_file()
     assert (p / "net_balance_by_horizon.csv").is_file()
+    assert (p / "sourcing_priority.csv").is_file()
     assert (p / "run_metadata.json").is_file()
 
     with open(p / "run_metadata.json", "r", encoding="utf-8") as f:
