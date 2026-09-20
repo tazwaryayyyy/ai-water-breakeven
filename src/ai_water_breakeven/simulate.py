@@ -16,7 +16,7 @@ from ai_water_breakeven.model import (
     find_sustained_breakeven,
 )
 from ai_water_breakeven.params import Parameter, resolve_region_basis, select_scenario_parameters
-from ai_water_breakeven.sample import create_scenario_rng, sample_parameter_matrix
+from ai_water_breakeven.sample import create_scenario_rng, sample_inverse_cdf, sample_parameter_matrix
 
 @dataclass
 class SimulationResults:
@@ -270,6 +270,57 @@ def compute_knockout_table(results: Dict[str, SimulationResults]) -> pd.DataFram
             }
         )
         rows.append(row)
+    return pd.DataFrame(rows)
+
+
+def compute_threshold_map(
+    params: Dict[str, Parameter],
+    x_name: str,
+    y_name: str,
+    horizon: int = 30,
+    grid: int = 15,
+    n_per_cell: int = 5000,
+    seed: int = 42,
+    k_switch: float = 0.0,
+    region: str = "global",
+    basis: str = "withdrawal",
+) -> pd.DataFrame:
+    """Map break-even probability by fixing two columns over shared base draws."""
+    if grid < 2:
+        raise ValueError("grid must be at least 2")
+    active, missing = select_scenario_parameters(params, region, basis)
+    if missing:
+        raise ValueError(f"Missing rows for region={region}, basis={basis}: {', '.join(missing)}")
+    role_by_name = {param.name: role for role, param in active.items()}
+    if x_name not in role_by_name or y_name not in role_by_name:
+        raise ValueError("Threshold axes must be selected parameters for the requested region and basis")
+    x_param, y_param = active[role_by_name[x_name]], active[role_by_name[y_name]]
+    x_values = np.linspace(*sample_inverse_cdf(x_param, np.array([0.05, 0.95])), grid)
+    y_values = np.linspace(*sample_inverse_cdf(y_param, np.array([0.05, 0.95])), grid)
+    base_samples, base_deployments = sample_parameter_matrix(
+        list(active.values()), n_per_cell, create_scenario_rng(seed, 17)
+    )
+    rows = []
+    for x_value in x_values:
+        for y_value in y_values:
+            samples, deployments = _copy_draws(base_samples, base_deployments)
+            samples[x_name] = np.full(n_per_cell, x_value)
+            samples[y_name] = np.full(n_per_cell, y_value)
+            result = _evaluate_samples(
+                active, samples, deployments, horizon, k_switch, region, basis
+            )
+            count = int(np.sum(result.be_years <= horizon))
+            ci_low, ci_high = wilson_interval(count, n_per_cell)
+            rows.append(
+                {
+                    "x": x_value,
+                    "y": y_value,
+                    "P": count / n_per_cell,
+                    "ci_low": ci_low,
+                    "ci_high": ci_high,
+                    "n": n_per_cell,
+                }
+            )
     return pd.DataFrame(rows)
 
 

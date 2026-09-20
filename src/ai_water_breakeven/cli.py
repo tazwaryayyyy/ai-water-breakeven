@@ -21,9 +21,15 @@ from ai_water_breakeven.figures import (
     plot_knockout_probabilities,
     plot_probability_vs_horizon,
     plot_scope_comparison,
+    plot_threshold_map,
     plot_tornado_chart,
 )
-from ai_water_breakeven.params import load_parameters, resolve_region_basis, validate_parameters
+from ai_water_breakeven.params import (
+    load_parameters,
+    resolve_region_basis,
+    select_scenario_parameters,
+    validate_parameters,
+)
 from ai_water_breakeven.simulate import (
     compute_conditions_table,
     compute_cost_trajectory,
@@ -31,6 +37,7 @@ from ai_water_breakeven.simulate import (
     compute_prcc,
     compute_summary_metrics,
     compute_tornado,
+    compute_threshold_map,
     run_simulation,
     run_knockout_scenarios,
 )
@@ -230,8 +237,60 @@ def cmd_knockouts(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_threshold(args: argparse.Namespace) -> int:
+    """Write a two-parameter threshold map for the configured scenario dimensions."""
+    cfg, params, out = (
+        load_config(Path(args.config)),
+        load_parameters(args.parameters),
+        Path(args.out_dir),
+    )
+    out.mkdir(parents=True, exist_ok=True)
+    region, basis = _scenario_dimensions(cfg, args)
+    validate_parameters(
+        params,
+        region=region,
+        basis=basis,
+        strict=args.strict or cfg.get("strict", False),
+        allow_mixed_basis=args.allow_mixed_basis or cfg.get("allow_mixed_basis", False),
+    )
+    x_name, y_name = getattr(args, "x", "g_global"), getattr(args, "y", "phi_solar_food")
+    horizon = getattr(args, "horizon", None) or cfg.get("conditions_horizon", 30)
+    grid, n_per_cell = getattr(args, "grid", 15), getattr(args, "n_per_cell", 5000)
+    table = compute_threshold_map(
+        params,
+        x_name,
+        y_name,
+        horizon,
+        grid,
+        n_per_cell,
+        cfg.get("seed", 42),
+        cfg.get("k", 0.0),
+        region,
+        basis,
+    )
+    active, _ = select_scenario_parameters(params, region, basis)
+    by_name = {param.name: param for param in active.values()}
+    has_placeholder = any(param.is_placeholder_or_missing for param in active.values())
+    _write_table(table, out / "threshold_map.csv", has_placeholder)
+    plot_threshold_map(
+        table,
+        out / "fig7_threshold_map",
+        f"{x_name} ({by_name[x_name].unit})",
+        f"{y_name} ({by_name[y_name].unit})",
+        has_placeholder,
+    )
+    print(f"Threshold map written to {out}")
+    return 0
+
+
 def cmd_reproduce(args: argparse.Namespace) -> int:
-    return cmd_validate(args) or cmd_run(args) or cmd_figures(args) or cmd_knockouts(args)
+    return (
+        cmd_validate(args)
+        or cmd_run(args)
+        or cmd_figures(args)
+        or cmd_knockouts(args)
+        or cmd_threshold(args)
+    )
 
 
 def main() -> None:
@@ -244,6 +303,7 @@ def main() -> None:
         ("run", cmd_run),
         ("figures", cmd_figures),
         ("knockouts", cmd_knockouts),
+        ("threshold", cmd_threshold),
         ("reproduce", cmd_reproduce),
     ]:
         sp = sub.add_parser(name)
@@ -253,11 +313,17 @@ def main() -> None:
         sp.add_argument("--allow-mixed-basis", action="store_true")
         sp.add_argument("--region", choices=["global", "us"], default=None)
         sp.add_argument("--basis", choices=["withdrawal", "consumption"], default=None)
-        if name in ("run", "figures", "knockouts", "reproduce"):
+        if name in ("run", "figures", "knockouts", "threshold", "reproduce"):
             sp.add_argument("--out-dir", default="results")
             sp.add_argument("--samples", type=int, default=None)
         if name in ("run", "knockouts", "reproduce"):
             sp.add_argument("--horizon", type=int, default=None)
+        if name == "threshold":
+            sp.add_argument("--x", default="g_global")
+            sp.add_argument("--y", default="phi_solar_food")
+            sp.add_argument("--horizon", type=int, default=30)
+            sp.add_argument("--grid", type=int, default=15)
+            sp.add_argument("--n-per-cell", dest="n_per_cell", type=int, default=5000)
 
     args = p.parse_args()
     cmds = {
@@ -265,6 +331,7 @@ def main() -> None:
         "run": cmd_run,
         "figures": cmd_figures,
         "knockouts": cmd_knockouts,
+        "threshold": cmd_threshold,
         "reproduce": cmd_reproduce,
     }
     sys.exit(cmds[args.command](args))

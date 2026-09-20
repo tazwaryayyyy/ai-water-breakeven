@@ -9,6 +9,7 @@ from ai_water_breakeven.params import Parameter, load_parameters
 from ai_water_breakeven.sample import sample_inverse_cdf, sample_parameter_matrix
 from ai_water_breakeven.simulate import (
     compute_summary_metrics,
+    compute_threshold_map,
     run_knockout_scenarios,
     run_simulation,
     wilson_interval,
@@ -102,3 +103,15 @@ def test_common_random_number_ceiling_cannot_delay_break_even(base_params):
     assert np.all(paired_ceiling <= paired_base)
     for horizon in [10, 20, 30]:
         assert np.mean(paired_ceiling <= horizon) >= np.mean(paired_base <= horizon)
+
+
+def test_threshold_map_has_expected_monotonic_directions(base_params):
+    """Shared-draw threshold cells are monotonic when rebound factors are at most one."""
+    table = compute_threshold_map(
+        base_params, "g_global", "phi_solar_food", horizon=20, grid=3, n_per_cell=400, seed=23
+    )
+    pivot = table.pivot(index="y", columns="x", values="P")
+    for _, row in pivot.iterrows():
+        assert np.all(np.diff(row.to_numpy()) <= 0)
+    for _, column in pivot.items():
+        assert np.all(np.diff(column.to_numpy()) >= 0)

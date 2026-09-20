@@ -3,7 +3,14 @@
 import json
 from pathlib import Path
 
-from ai_water_breakeven.cli import cmd_figures, cmd_knockouts, cmd_reproduce, cmd_run, cmd_validate
+from ai_water_breakeven.cli import (
+    cmd_figures,
+    cmd_knockouts,
+    cmd_reproduce,
+    cmd_run,
+    cmd_threshold,
+    cmd_validate,
+)
 
 
 class DummyArgs:
@@ -86,3 +93,12 @@ def test_cli_knockouts(tmp_path):
     args = DummyArgs(out_dir=out_dir, samples=200, horizon=15)
     assert cmd_knockouts(args) == 0
     assert (Path(out_dir) / "knockouts.csv").is_file()
+
+
+def test_cli_threshold(tmp_path):
+    """Threshold map is available through the dedicated CLI command."""
+    out_dir = str(tmp_path / "threshold_out")
+    args = DummyArgs(out_dir=out_dir)
+    args.grid, args.n_per_cell, args.x, args.y = 3, 100, "g_global", "phi_solar_food"
+    assert cmd_threshold(args) == 0
+    assert (Path(out_dir) / "threshold_map.csv").is_file()

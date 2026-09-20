@@ -239,6 +239,22 @@ def plot_knockout_probabilities(df: pd.DataFrame, out: Path, has_ph: bool) -> No
     _save(fig, out, has_ph, False)
 
 
+def plot_threshold_map(
+    df: pd.DataFrame, out: Path, x_label: str, y_label: str, has_ph: bool
+) -> None:
+    """Plot threshold probabilities and requested probability contours."""
+    x_values = np.sort(df["x"].unique())
+    y_values = np.sort(df["y"].unique())
+    z = df.pivot(index="y", columns="x", values="P").reindex(index=y_values, columns=x_values)
+    fig, ax = plt.subplots(figsize=(7.5, 5.4))
+    image = ax.pcolormesh(x_values, y_values, z.to_numpy(), shading="auto", vmin=0, vmax=1)
+    contours = ax.contour(x_values, y_values, z.to_numpy(), levels=[0.1, 0.5, 0.9], colors="black")
+    ax.clabel(contours, fmt="%.1f", fontsize=8)
+    fig.colorbar(image, ax=ax, label="P(sustained break-even by horizon)")
+    ax.set(xlabel=x_label, ylabel=y_label, title="Break-Even Threshold Map")
+    _save(fig, out, has_ph, False)
+
+
 def _annotate_horizon_probability(ax: plt.Axes, res: SimulationResults) -> None:
     """Label the 30-year probability with its Wilson interval, or the last available horizon."""
     horizon = min(30, res.t_horizon)
