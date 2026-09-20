@@ -124,3 +124,16 @@ def test_gallons_to_m3_conversion_round_trip():
     arr_m3 = gallons_to_m3(arr_gal)
     arr_rec = m3_to_gallons(arr_m3)
     np.testing.assert_allclose(arr_rec, arr_gal, rtol=1e-12)
+
+
+def test_zero_second_phase_growth_reproduces_previous_cost_curve():
+    """The two-phase equation is exactly the original capped curve when g2 is zero."""
+    rng = np.random.default_rng(7)
+    w_dir, w_ind = rng.uniform(1.0, 20.0, (2, 8))
+    g1, G1 = rng.uniform(0.0, 0.5, 8), rng.uniform(1.0, 20.0, 8)
+    t = np.arange(1, 51)[np.newaxis, :]
+    previous = calc_cost(w_dir[:, None], w_ind[:, None], 0.4, g1[:, None], G1[:, None], t)
+    two_phase = calc_cost(
+        w_dir[:, None], w_ind[:, None], 0.4, g1[:, None], G1[:, None], np.zeros((8, 1)), t
+    )
+    np.testing.assert_array_equal(two_phase, previous)

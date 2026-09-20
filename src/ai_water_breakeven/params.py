@@ -13,7 +13,7 @@ VALID_DISTRIBUTIONS = {"fixed", "uniform", "triangular", "lognormal"}
 VALID_BASES = {"withdrawal", "consumption", "n/a"}
 VALID_REGIONS = {"global", "us"}
 
-COST_ROLES = ("W_direct", "W_indirect", "g", "G")
+COST_ROLES = ("W_direct", "W_indirect", "g", "G", "g2")
 BENEFIT_ROLES = (
     "p_desal",
     "alpha_desal",
@@ -115,7 +115,7 @@ def resolve_region_basis(
 
 def _role_candidates(role: str, region: str) -> tuple[str, ...]:
     """Return accepted CSV names for a role, including a future region-specific suffix."""
-    if role in ("W_direct", "W_indirect", "g", "G"):
+    if role in ("W_direct", "W_indirect", "g", "G", "g2"):
         return (f"{role}_{region}",)
     return (role, f"{role}_{region}")
 

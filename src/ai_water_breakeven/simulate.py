@@ -34,6 +34,8 @@ class SimulationResults:
     final_net_balances: np.ndarray
     desal_benefits: np.ndarray
     solar_food_benefits: np.ndarray
+    cost_trajectories: np.ndarray
+    cost_at_zero: np.ndarray
     sampled_params: Dict[str, np.ndarray]
     active_parameters: Dict[str, Parameter]
     has_placeholder: bool
@@ -70,6 +72,7 @@ def run_simulation(
         1.0 if scenario_region == "global" else k_switch,
         s["g"][:, None],
         s["G"][:, None],
+        s["g2"][:, None],
         t,
     )
     bd = calc_benefit_desal(
@@ -113,6 +116,8 @@ def run_simulation(
         nb[:, -1],
         bd,
         bf,
+        c,
+        s["W_direct"] + (1.0 if scenario_region == "global" else k_switch) * s["W_indirect"],
         raw_samples,
         active,
         any(p.is_placeholder_or_missing for p in active.values()),
@@ -195,6 +200,26 @@ def compute_prcc(sampled_params: Dict[str, np.ndarray], y_target: np.ndarray) ->
     )
 
 
+def compute_cost_trajectory(results: SimulationResults) -> pd.DataFrame:
+    """Report C(t) and C(t)/C(0) percentiles at predefined comparison years."""
+    rows = []
+    for year in [5, 10, 25, 50]:
+        if year <= results.t_horizon:
+            cost = results.cost_trajectories[:, year - 1]
+            ratio = np.divide(
+                cost,
+                results.cost_at_zero,
+                out=np.full_like(cost, np.nan),
+                where=results.cost_at_zero != 0,
+            )
+            row: Dict[str, Any] = {"year": year}
+            for percentile in [5, 25, 50, 75, 95]:
+                row[f"C_p{percentile}"] = float(np.nanpercentile(cost, percentile))
+                row[f"C_over_C0_p{percentile}"] = float(np.nanpercentile(ratio, percentile))
+            rows.append(row)
+    return pd.DataFrame(rows)
+
+
 def compute_tornado(
     params: Dict[str, Parameter],
     t_horizon: int = 50,
@@ -220,6 +245,7 @@ def compute_tornado(
             1.0 if scenario_region == "global" else k_switch,
             p["g"],
             p["G"],
+            p["g2"],
             t,
         )
         bd = calc_benefit_desal(

@@ -25,6 +25,7 @@ from ai_water_breakeven.figures import (
 from ai_water_breakeven.params import load_parameters, resolve_region_basis, validate_parameters
 from ai_water_breakeven.simulate import (
     compute_conditions_table,
+    compute_cost_trajectory,
     compute_prcc,
     compute_summary_metrics,
     compute_tornado,
@@ -134,6 +135,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     compute_conditions_table(res, cfg.get("conditions_horizon", 30)).to_csv(
         out / "conditions.csv", index=False
     )
+    compute_cost_trajectory(res).to_csv(out / "cost_trajectory.csv", index=False)
     json.dump(
         _metadata(cfg, Path(args.parameters), Path(args.config), res),
         open(out / "run_metadata.json", "w", encoding="utf-8"),

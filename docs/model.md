@@ -24,12 +24,12 @@
 ### Cost Trajectory
 The operational water use of AI at year $t \in [1, T]$ is governed by:
 
-$$C(t) = (W_{\text{direct}} + k \cdot W_{\text{indirect}}) \cdot (1 + g)^{\min(t, G)}$$
+$$C(t) = (W_{\text{direct}} + k \cdot W_{\text{indirect}}) \cdot (1 + g_1)^{\min(t, G_1)} \cdot (1 + g_2)^{\max(t-G_1,0)}$$
 
 where:
 - $W_{\text{direct}}$ and $W_{\text{indirect}}$ are baseline annual volumes ($\text{m}^3/\text{yr}$).
-- $g$ is the net annual growth rate of compute water demand.
-- $G$ is the duration in years over which demand compounds before reaching a plateau.
+- $g_1$ is the first-phase annual growth rate and $G_1$ is its duration in years.
+- $g_2$ is the second-phase annual growth rate and may be negative but must exceed $-1$.
 
 ### Benefit Pathways
 For each pathway $i$ (e.g., desalination efficiency, solar food displacement):

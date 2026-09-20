@@ -14,10 +14,23 @@ def m3_to_gallons(m3: np.ndarray | float) -> np.ndarray | float:
 
 
 def calc_cost(
-    w_dir: np.ndarray, w_ind: np.ndarray, k: float, g: np.ndarray, G: np.ndarray, t: np.ndarray
+    w_dir: np.ndarray,
+    w_ind: np.ndarray,
+    k: float,
+    g1: np.ndarray,
+    G1: np.ndarray,
+    g2_or_t: np.ndarray,
+    t: np.ndarray | None = None,
 ) -> np.ndarray:
-    # Cap exponent at G so compounding ceases after growth plateau
-    return (w_dir + k * w_ind) * ((1.0 + g) ** np.minimum(t, G))
+    """Calculate a two-phase cost trajectory; omitted g2 retains the old curve exactly."""
+    if t is None:
+        t = g2_or_t
+        g2 = np.zeros_like(g1)
+    else:
+        g2 = g2_or_t
+    return (w_dir + k * w_ind) * ((1.0 + g1) ** np.minimum(t, G1)) * (
+        (1.0 + g2) ** np.maximum(t - G1, 0)
+    )
 
 
 def calc_ramp(t: np.ndarray, lag: np.ndarray, ramp: np.ndarray) -> np.ndarray:
