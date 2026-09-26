@@ -20,7 +20,13 @@ CB_BLUE, CB_ORANGE, CB_GREEN, CB_VERMILION, CB_GREY, CB_SKY = (
 )
 
 
-def _save(fig: plt.Figure, out: Path, has_ph: bool, is_mix: bool) -> None:
+def _save(
+    fig: plt.Figure,
+    out: Path,
+    has_ph: bool,
+    is_mix: bool,
+    cost_scope: str | None = None,
+) -> None:
     if has_ph:
         fig.text(
             0.5,
@@ -51,6 +57,15 @@ def _save(fig: plt.Figure, out: Path, has_ph: bool, is_mix: bool) -> None:
             fontsize=8,
             color="darkorange",
             ha="center",
+        )
+    if cost_scope:
+        fig.text(
+            0.99,
+            0.01,
+            f"Scope: {cost_scope}",
+            fontsize=7,
+            color="#555555",
+            ha="right",
         )
     out.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out.with_suffix(".png"), dpi=300, bbox_inches="tight")
@@ -86,7 +101,7 @@ def plot_breakeven_distribution(res: SimulationResults, out: Path) -> None:
         title="Distribution of Sustained Break-Even Horizon",
     )
     ax.legend(frameon=False)
-    _save(fig, out, res.has_placeholder, res.is_mixed_basis)
+    _save(fig, out, res.has_placeholder, res.is_mixed_basis, cost_scope=res.cost_scope)
 
 
 def plot_probability_vs_horizon(res: SimulationResults, out: Path) -> None:
@@ -105,10 +120,13 @@ def plot_probability_vs_horizon(res: SimulationResults, out: Path) -> None:
         if h <= res.t_horizon:
             count = int(np.sum(res.be_years <= h))
             low, high = wilson_interval(count, res.n_samples)
-            labels.append(f"{h} yr: {count / res.n_samples:.3f} [{low:.3f}, {high:.3f}]")
+            if count == 0 or count == res.n_samples:
+                labels.append(f"{h} yr: {count} of {res.n_samples} runs [{low:.3f}, {high:.3f}]")
+            else:
+                labels.append(f"{h} yr: {count / res.n_samples:.3f} [{low:.3f}, {high:.3f}]")
     if labels:
         ax.text(0.02, 0.98, "\n".join(labels), transform=ax.transAxes, va="top", fontsize=8)
-    _save(fig, out, res.has_placeholder, res.is_mixed_basis)
+    _save(fig, out, res.has_placeholder, res.is_mixed_basis, cost_scope=res.cost_scope)
 
 
 def plot_net_balance_fan_chart(res: SimulationResults, out: Path) -> None:
@@ -139,11 +157,15 @@ def plot_net_balance_fan_chart(res: SimulationResults, out: Path) -> None:
     )
     ax.legend(loc="upper left", frameon=False)
     ax.grid(True, linestyle=":", alpha=0.5)
-    _save(fig, out, res.has_placeholder, res.is_mixed_basis)
+    _save(fig, out, res.has_placeholder, res.is_mixed_basis, cost_scope=res.cost_scope)
 
 
 def plot_tornado_chart(
-    df: pd.DataFrame, out: Path, has_ph: bool = True, is_mix: bool = False
+    df: pd.DataFrame,
+    out: Path,
+    has_ph: bool = True,
+    is_mix: bool = False,
+    cost_scope: str | None = None,
 ) -> None:
     fig, ax = plt.subplots(figsize=(8.5, 5.2))
     sub = df.head(10).iloc[::-1]
@@ -159,7 +181,7 @@ def plot_tornado_chart(
     )
     ax.legend(frameon=False)
     ax.grid(True, linestyle=":", alpha=0.5)
-    _save(fig, out, has_ph, is_mix)
+    _save(fig, out, has_ph, is_mix, cost_scope=cost_scope)
 
 
 def plot_scope_comparison(r0: SimulationResults, r1: SimulationResults, out: Path) -> None:
@@ -182,7 +204,7 @@ def plot_scope_comparison(r0: SimulationResults, r1: SimulationResults, out: Pat
         ax.legend(frameon=False)
         ax.grid(True, linestyle=":", alpha=0.6)
         _annotate_horizon_probability(ax, r0)
-        _save(fig, out, r0.has_placeholder, r0.is_mixed_basis)
+        _save(fig, out, r0.has_placeholder, r0.is_mixed_basis, cost_scope=r0.cost_scope)
         return
     ax.plot(
         t,
@@ -209,11 +231,17 @@ def plot_scope_comparison(r0: SimulationResults, r1: SimulationResults, out: Pat
     ax.grid(True, linestyle=":", alpha=0.6)
     _annotate_horizon_probability(ax, r0)
     _save(
-        fig, out, r0.has_placeholder or r1.has_placeholder, r0.is_mixed_basis or r1.is_mixed_basis
+        fig,
+        out,
+        r0.has_placeholder or r1.has_placeholder,
+        r0.is_mixed_basis or r1.is_mixed_basis,
+        cost_scope=r0.cost_scope,
     )
 
 
-def plot_knockout_probabilities(df: pd.DataFrame, out: Path, has_ph: bool) -> None:
+def plot_knockout_probabilities(
+    df: pd.DataFrame, out: Path, has_ph: bool, cost_scope: str | None = None
+) -> None:
     """Draw common-random-number knockout probabilities with Wilson intervals."""
     suffix = "yr30" if "p_breakeven_yr30" in df else "yr" + str(
         max(int(c.removeprefix("p_breakeven_yr")) for c in df if c.startswith("p_breakeven_yr"))
@@ -236,11 +264,16 @@ def plot_knockout_probabilities(df: pd.DataFrame, out: Path, has_ph: bool) -> No
         title="Common-Random-Number Knockout Scenarios",
     )
     ax.grid(axis="x", linestyle=":", alpha=0.6)
-    _save(fig, out, has_ph, False)
+    _save(fig, out, has_ph, False, cost_scope=cost_scope)
 
 
 def plot_threshold_map(
-    df: pd.DataFrame, out: Path, x_label: str, y_label: str, has_ph: bool
+    df: pd.DataFrame,
+    out: Path,
+    x_label: str,
+    y_label: str,
+    has_ph: bool,
+    cost_scope: str | None = None,
 ) -> None:
     """Plot threshold probabilities and requested probability contours."""
     x_values = np.sort(df["x"].unique())
@@ -252,7 +285,7 @@ def plot_threshold_map(
     ax.clabel(contours, fmt="%.1f", fontsize=8)
     fig.colorbar(image, ax=ax, label="P(sustained break-even by horizon)")
     ax.set(xlabel=x_label, ylabel=y_label, title="Break-Even Threshold Map")
-    _save(fig, out, has_ph, False)
+    _save(fig, out, has_ph, False, cost_scope=cost_scope)
 
 
 def _annotate_horizon_probability(ax: plt.Axes, res: SimulationResults) -> None:
@@ -260,10 +293,14 @@ def _annotate_horizon_probability(ax: plt.Axes, res: SimulationResults) -> None:
     horizon = min(30, res.t_horizon)
     count = int(np.sum(res.be_years <= horizon))
     low, high = wilson_interval(count, res.n_samples)
+    if count == 0 or count == res.n_samples:
+        text = f"{horizon} yr: {count} of {res.n_samples} runs [{low:.3f}, {high:.3f}]"
+    else:
+        text = f"{horizon} yr: {count / res.n_samples:.3f} [{low:.3f}, {high:.3f}]"
     ax.text(
         0.02,
         0.98,
-        f"{horizon} yr: {count / res.n_samples:.3f} [{low:.3f}, {high:.3f}]",
+        text,
         transform=ax.transAxes,
         va="top",
         fontsize=8,

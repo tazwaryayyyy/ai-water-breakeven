@@ -25,7 +25,9 @@ from ai_water_breakeven.figures import (
     plot_tornado_chart,
 )
 from ai_water_breakeven.params import (
+    available_combinations,
     load_parameters,
+    missing_rows_for_combination,
     resolve_region_basis,
     select_scenario_parameters,
     validate_parameters,
@@ -136,7 +138,11 @@ def cmd_run(args: argparse.Namespace) -> int:
         args.allow_mixed_basis or cfg.get("allow_mixed_basis", False),
     )
 
-    validate_parameters(params, region=region, basis=basis, strict=strict, allow_mixed_basis=allow_m)
+    try:
+        validate_parameters(params, region=region, basis=basis, strict=strict, allow_mixed_basis=allow_m)
+    except ValueError as e:
+        print(f"Validation failed:\n{e}", file=sys.stderr)
+        return 1
     res = run_simulation(
         params,
         t_h,
@@ -191,6 +197,18 @@ def cmd_figures(args: argparse.Namespace) -> int:
     region, basis, seed = (*_scenario_dimensions(cfg, args), cfg.get("seed", 42))
     allow_m = args.allow_mixed_basis or cfg.get("allow_mixed_basis", False)
 
+    try:
+        validate_parameters(
+            params,
+            region=region,
+            basis=basis,
+            strict=args.strict or cfg.get("strict", False),
+            allow_mixed_basis=allow_m,
+        )
+    except ValueError as e:
+        print(f"Validation failed:\n{e}", file=sys.stderr)
+        return 1
+
     r0 = run_simulation(params, t_h, n_s, 0.0, seed=seed, scenario_idx=0, allow_mixed_basis=allow_m, region=region, basis=basis)
     r1 = run_simulation(params, t_h, n_s, 1.0, seed=seed, scenario_idx=1, allow_mixed_basis=allow_m, region=region, basis=basis)
 
@@ -202,6 +220,7 @@ def cmd_figures(args: argparse.Namespace) -> int:
         out / "fig4_tornado",
         r0.has_placeholder,
         r0.is_mixed_basis,
+        cost_scope=r0.cost_scope,
     )
     plot_scope_comparison(r0, r1, out / "fig5_scope_comparison")
     print(f"Figures written to {out}")
@@ -218,13 +237,17 @@ def cmd_knockouts(args: argparse.Namespace) -> int:
     out.mkdir(parents=True, exist_ok=True)
     region, basis = _scenario_dimensions(cfg, args)
     t_h, n_s = args.horizon or cfg.get("T", 50), args.samples or cfg.get("N", 100000)
-    validate_parameters(
-        params,
-        region=region,
-        basis=basis,
-        strict=args.strict or cfg.get("strict", False),
-        allow_mixed_basis=args.allow_mixed_basis or cfg.get("allow_mixed_basis", False),
-    )
+    try:
+        validate_parameters(
+            params,
+            region=region,
+            basis=basis,
+            strict=args.strict or cfg.get("strict", False),
+            allow_mixed_basis=args.allow_mixed_basis or cfg.get("allow_mixed_basis", False),
+        )
+    except ValueError as e:
+        print(f"Validation failed:\n{e}", file=sys.stderr)
+        return 1
     results = run_knockout_scenarios(
         params,
         t_h,
@@ -237,7 +260,10 @@ def cmd_knockouts(args: argparse.Namespace) -> int:
     table = compute_knockout_table(results)
     _write_table(table, out / "knockouts.csv", results["baseline"].has_placeholder)
     plot_knockout_probabilities(
-        table, out / "fig6_knockouts", results["baseline"].has_placeholder
+        table,
+        out / "fig6_knockouts",
+        results["baseline"].has_placeholder,
+        cost_scope=results["baseline"].cost_scope,
     )
     print(f"Knockout outputs written to {out}")
     return 0
@@ -252,13 +278,17 @@ def cmd_threshold(args: argparse.Namespace) -> int:
     )
     out.mkdir(parents=True, exist_ok=True)
     region, basis = _scenario_dimensions(cfg, args)
-    validate_parameters(
-        params,
-        region=region,
-        basis=basis,
-        strict=args.strict or cfg.get("strict", False),
-        allow_mixed_basis=args.allow_mixed_basis or cfg.get("allow_mixed_basis", False),
-    )
+    try:
+        validate_parameters(
+            params,
+            region=region,
+            basis=basis,
+            strict=args.strict or cfg.get("strict", False),
+            allow_mixed_basis=args.allow_mixed_basis or cfg.get("allow_mixed_basis", False),
+        )
+    except ValueError as e:
+        print(f"Validation failed:\n{e}", file=sys.stderr)
+        return 1
     x_name, y_name = getattr(args, "x", "g_global"), getattr(args, "y", "phi_solar_food")
     horizon = getattr(args, "horizon", None) or cfg.get("conditions_horizon", 30)
     grid, n_per_cell = getattr(args, "grid", 15), getattr(args, "n_per_cell", 5000)
@@ -277,6 +307,7 @@ def cmd_threshold(args: argparse.Namespace) -> int:
     active, _ = select_scenario_parameters(params, region, basis)
     by_name = {param.name: param for param in active.values()}
     has_placeholder = any(param.is_placeholder_or_missing for param in active.values())
+    cost_scope = "scope 1+2 combined" if region == "global" else None
     _write_table(table, out / "threshold_map.csv", has_placeholder)
     plot_threshold_map(
         table,
@@ -284,19 +315,60 @@ def cmd_threshold(args: argparse.Namespace) -> int:
         f"{x_name} ({by_name[x_name].unit})",
         f"{y_name} ({by_name[y_name].unit})",
         has_placeholder,
+        cost_scope=cost_scope,
     )
     print(f"Threshold map written to {out}")
     return 0
 
 
 def cmd_reproduce(args: argparse.Namespace) -> int:
-    return (
-        cmd_validate(args)
-        or cmd_run(args)
-        or cmd_figures(args)
-        or cmd_knockouts(args)
-        or cmd_threshold(args)
+    """Regenerate every output for each complete cost region/basis combination."""
+    cfg, params, root = load_config(Path(args.config)), load_parameters(args.parameters), Path(args.out_dir)
+    root.mkdir(parents=True, exist_ok=True)
+    preferred = _scenario_dimensions(cfg, args)
+    combinations = available_combinations(params)
+    ordered = [preferred] + [item for item in combinations if item != preferred]
+    status_rows, ran, skipped = [], [], []
+    for region, basis in ordered:
+        missing = missing_rows_for_combination(params, region, basis)
+        if missing:
+            record = {"region": region, "basis": basis, "status": "skipped", "missing_rows": ", ".join(missing)}
+            status_rows.append(record)
+            skipped.append(record)
+            continue
+        local = argparse.Namespace(**vars(args))
+        local.region, local.basis = region, basis
+        local.out_dir = str(root if (region, basis) == preferred else root / f"{region}_{basis}")
+        try:
+            validate_parameters(
+                params,
+                region=region,
+                basis=basis,
+                strict=local.strict or cfg.get("strict", False),
+                allow_mixed_basis=local.allow_mixed_basis or cfg.get("allow_mixed_basis", False),
+            )
+        except ValueError as error:
+            print(f"Validation failed:\n{error}", file=sys.stderr)
+            return 1
+        for command in (cmd_run, cmd_figures, cmd_knockouts, cmd_threshold):
+            if command(local) != 0:
+                return 1
+        record = {"region": region, "basis": basis, "status": "ran", "missing_rows": ""}
+        status_rows.append(record)
+        ran.append({"region": region, "basis": basis, "out_dir": local.out_dir})
+    has_placeholder = any(p.is_placeholder_or_missing for p in params.values())
+    _write_table(pd.DataFrame(status_rows), root / "reproduce_status.csv", has_placeholder)
+    json.dump(
+        {
+            "ran": ran,
+            "skipped": skipped,
+            "publication_notice": PLACEHOLDER_NOTICE if has_placeholder else None,
+        },
+        open(root / "reproduce_manifest.json", "w", encoding="utf-8"),
+        indent=2,
     )
+    print(f"Reproduction complete. Skipped combinations: {len(skipped)}")
+    return 0
 
 
 def main() -> None:

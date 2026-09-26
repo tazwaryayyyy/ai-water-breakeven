@@ -104,3 +104,39 @@ def test_cli_threshold(tmp_path):
     args.grid, args.n_per_cell, args.x, args.y = 3, 100, "g_global", "phi_solar_food"
     assert cmd_threshold(args) == 0
     assert (Path(out_dir) / "threshold_map.csv").is_file()
+
+
+def test_placeholder_watermark_in_all_outputs_and_strict_fails(tmp_path):
+    """Test 9: After non-strict run, every output file has placeholder mark; --strict fails."""
+    # 1. Strict mode fails
+    strict_args = DummyArgs(out_dir=str(tmp_path / "strict_out"), strict=True)
+    assert cmd_run(strict_args) == 1
+
+    # 2. Non-strict run produces placeholder watermark in every output
+    out_dir = tmp_path / "ph_out"
+    args = DummyArgs(out_dir=str(out_dir), samples=200, horizon=15)
+    assert cmd_run(args) == 0
+    assert cmd_figures(args) == 0
+    assert cmd_knockouts(args) == 0
+    args.grid, args.n_per_cell, args.x, args.y = 2, 50, "g_global", "phi_solar_food"
+    assert cmd_threshold(args) == 0
+
+    csv_files = list(out_dir.glob("*.csv"))
+    json_files = list(out_dir.glob("*.json"))
+    svg_files = list(out_dir.glob("*.svg"))
+
+    assert len(csv_files) >= 7
+    assert len(json_files) >= 2
+    assert len(svg_files) >= 7
+
+    for csv_file in csv_files:
+        content = csv_file.read_text(encoding="utf-8")
+        assert "PLACEHOLDER INPUTS - NOT FOR PUBLICATION" in content, f"Missing mark in {csv_file.name}"
+
+    for json_file in json_files:
+        content = json_file.read_text(encoding="utf-8")
+        assert "PLACEHOLDER INPUTS - NOT FOR PUBLICATION" in content, f"Missing mark in {json_file.name}"
+
+    for svg_file in svg_files:
+        content = svg_file.read_text(encoding="utf-8")
+        assert "PLACEHOLDER INPUTS - NOT FOR PUBLICATION" in content, f"Missing mark in {svg_file.name}"

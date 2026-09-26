@@ -4,6 +4,8 @@ import numpy as np
 
 from ai_water_breakeven.model import (
     M3_PER_US_GALLON,
+    calc_benefit_desal,
+    calc_benefit_solar_food,
     calc_cost,
     calc_net_balance,
     calc_ramp,
@@ -137,3 +139,43 @@ def test_zero_second_phase_growth_reproduces_previous_cost_curve():
         w_dir[:, None], w_ind[:, None], 0.4, g1[:, None], G1[:, None], np.zeros((8, 1)), t
     )
     np.testing.assert_array_equal(two_phase, previous)
+
+
+def test_pathway_benefits_never_exceed_ceilings_and_cost_ordering():
+    """Test 3: Pathway benefits <= theoretical ceilings; direct-only cost <= direct+indirect."""
+    rng = np.random.default_rng(42)
+    n = 200
+    t = np.arange(1, 51)[np.newaxis, :]
+
+    # Solar food: Gross = phi * A * (1 - r) <= phi * A
+    s = rng.choice([0.0, 1.0], size=(n, 1))
+    alpha = rng.uniform(0.0, 1.0, size=(n, 1))
+    phi = rng.uniform(0.0, 1.0, size=(n, 1))
+    A = rng.uniform(1e11, 1e12, size=(n, 1))
+    r = rng.uniform(0.0, 1.0, size=(n, 1))
+    L = rng.uniform(0.0, 10.0, size=(n, 1))
+    R = rng.uniform(0.0, 20.0, size=(n, 1))
+    rho = rng.uniform(0.0, 0.5, size=(n, 1))
+
+    b_sf = calc_benefit_solar_food(s, alpha, phi, A, r, L, R, rho, t)
+    sf_ceiling = phi * A
+    assert np.all(b_sf <= sf_ceiling + 1e-9)
+    assert np.all(b_sf >= -1e-9)
+
+    # Desal: Gross = D * theta
+    D = rng.uniform(1e10, 5e10, size=(n, 1))
+    theta = rng.uniform(0.0, 1.0, size=(n, 1))
+    b_desal = calc_benefit_desal(s, alpha, D, theta, L, R, rho, t)
+    desal_ceiling = D * theta
+    assert np.all(b_desal <= desal_ceiling + 1e-9)
+    assert np.all(b_desal >= -1e-9)
+
+    # Cost ordering: direct-only (k=0) <= direct+electricity (k=1)
+    w_dir = rng.uniform(1e9, 5e9, size=(n, 1))
+    w_ind = rng.uniform(1e9, 5e9, size=(n, 1))
+    g1 = rng.uniform(0.0, 0.3, size=(n, 1))
+    G1 = rng.uniform(5.0, 15.0, size=(n, 1))
+    g2 = rng.uniform(-0.1, 0.3, size=(n, 1))
+    cost_k0 = calc_cost(w_dir, w_ind, 0.0, g1, G1, g2, t)
+    cost_k1 = calc_cost(w_dir, w_ind, 1.0, g1, G1, g2, t)
+    assert np.all(cost_k0 <= cost_k1)

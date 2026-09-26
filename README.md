@@ -56,20 +56,28 @@ ai-water-breakeven validate --strict
 
 All outputs are written to the specified results directory (default: `results/`):
 
-- `summary.csv` and `summary.json`: Probabilities of sustained break-even across horizons (10, 20, 30, 50 years) with Monte Carlo standard errors, probability of never breaking even, success horizon quantiles, and pathway benefit shares.
+- `summary.csv` and `summary.json`: Probabilities of sustained break-even across horizons (10, 20, 30, 50 years) with Wilson 95% intervals and Monte Carlo standard errors, probability of never breaking even, success horizon quantiles, and pathway benefit shares.
 - `prcc.csv`: Partial Rank Correlation Coefficients of continuous parameters against final net balance.
 - `tornado.csv`: One-at-a-time low/high parameter sensitivity swings on final net water balance.
-- `conditions.csv`: Parameter medians and interquartile ranges stratified by 30-year break-even success versus failure.
+- `conditions.csv`: Parameter medians and interquartile ranges stratified by break-even success versus failure at the configurable comparison horizon.
+- `cost_trajectory.csv`: Percentiles of cost $C(t)$ and growth ratio $C(t)/C(0)$ at evaluation years 5, 10, 25, and 50.
+- `net_balance_by_horizon.csv`: Net balance percentiles at evaluation horizons.
+- `sourcing_priority.csv`: Parameters ranked by absolute PRCC with verification status and traceability.
+- `knockouts.csv`: Common-random-number scenario metrics under deterministic column overrides.
+- `threshold_map.csv`: Two-parameter probability grid evaluations.
 - `run_metadata.json`: Provenance record including git commit hash, dependency versions, random seed, execution timestamp, and SHA-256 hashes of input parameters and configuration files.
+- `reproduce_status.csv` and `reproduce_manifest.json`: Execution status across all evaluated and skipped region/basis combinations.
 - `fig1_breakeven_dist.{png,svg}`: Distribution of sustained break-even years with an explicit censored outcome bar.
-- `fig2_p_breakeven_horizon.{png,svg}`: Cumulative sustained break-even probability across evaluation horizons.
+- `fig2_p_breakeven_horizon.{png,svg}`: Cumulative sustained break-even probability across evaluation horizons with Wilson intervals.
 - `fig3_net_balance_fan.{png,svg}`: Simulation trajectory fan chart displaying median, 50%, and 90% envelopes.
 - `fig4_tornado.{png,svg}`: Ranked horizontal sensitivity swing chart across model inputs.
 - `fig5_scope_comparison.{png,svg}`: Break-even probability comparison across direct-only ($k=0$) and direct-plus-electricity ($k=1$) scenarios when the selected cost rows separate those scopes.
+- `fig6_knockouts.{png,svg}`: Common-random-number knockout scenario break-even probabilities with Wilson intervals.
+- `fig7_threshold_map.{png,svg}`: Two-parameter contour threshold map of sustained break-even probability.
 
 ## Limitations
 
-The model uses global or national aggregate volumes and cannot represent local scarcity or basin conditions. It assumes independent inputs, has no embodied (scope 3) water, and has no financial discounting. Attribution shares are counterfactual modeling choices rather than empirical physical constants.
+The model uses global or national aggregate volumes and cannot represent local watershed scarcity or basin hydrologic conditions. It assumes independent inputs without copulas, excludes Scope 3 embodied water, holds baseline resource demands ($A$ and $D$) constant, and incorporates zero financial discounting. Attribution shares are modeled counterfactual assumptions rather than empirical physical constants.
 
 ## Citation
 

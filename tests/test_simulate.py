@@ -8,6 +8,7 @@ import pytest
 from ai_water_breakeven.params import Parameter, load_parameters
 from ai_water_breakeven.sample import sample_inverse_cdf, sample_parameter_matrix
 from ai_water_breakeven.simulate import (
+    compute_conditions_table,
     compute_summary_metrics,
     compute_threshold_map,
     run_knockout_scenarios,
@@ -115,3 +116,15 @@ def test_threshold_map_has_expected_monotonic_directions(base_params):
         assert np.all(np.diff(row.to_numpy()) <= 0)
     for _, column in pivot.items():
         assert np.all(np.diff(column.to_numpy()) >= 0)
+
+
+def test_conditions_table_success_count_matches_horizon_be_runs(base_params):
+    """Test 8: Number of success runs in conditions equals sustained BE <= conditions_horizon."""
+    res = run_simulation(base_params, t_horizon=30, n_samples=1000, seed=42)
+    for horizon in [10, 20, 30]:
+        df = compute_conditions_table(res, conditions_horizon=horizon)
+        expected_success = int(np.sum((res.be_years <= horizon) & (~np.isnan(res.be_years))))
+        expected_failure = int(res.n_samples - expected_success)
+        assert df["n_success"].iloc[0] == expected_success
+        assert df["n_failure"].iloc[0] == expected_failure
+        assert df["conditions_horizon"].iloc[0] == horizon

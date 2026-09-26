@@ -152,15 +152,9 @@ def missing_rows_for_combination(
     return missing
 
 
-def available_combinations(params: Dict[str, Parameter]) -> List[tuple[str, str]]:
-    """Return cost-row region/basis combinations in deterministic order."""
-    return sorted(
-        {
-            (p.region.lower(), p.basis)
-            for name, p in params.items()
-            if name.startswith("W_direct_") and p.basis != "n/a"
-        }
-    )
+def available_combinations(params: Dict[str, Parameter] | None = None) -> List[tuple[str, str]]:
+    """Return all valid (region, basis) combinations in deterministic order."""
+    return sorted((r, b) for r in VALID_REGIONS for b in VALID_BASES - {"n/a"})
 
 
 def validate_parameters(
@@ -183,9 +177,13 @@ def validate_parameters(
             errors.append(f"'{name}': low > high")
         if p.distribution == "lognormal" and p.low <= 0:
             errors.append(f"'{name}': lognormal low must be strictly positive")
-        if (name.startswith(("W_", "D_", "A_", "L_", "R_", "rho_")) and p.low < 0) or (
-            name.startswith(("p_", "alpha_")) and (p.low < 0 or p.high > 1)
-        ):
+        values = (p.low, p.mode, p.high)
+        is_fraction = name.startswith(("alpha_", "p_", "phi_", "theta_", "r_"))
+        is_nonnegative = name.startswith(("rho_", "L_", "R_", "W_", "A_", "D_", "G_"))
+        is_growth = name.startswith(("g_", "g2_"))
+        if (is_fraction and (min(values) < 0 or max(values) > 1)) or (
+            is_nonnegative and min(values) < 0
+        ) or (is_growth and min(values) <= -1):
             errors.append(f"'{name}': invalid domain/sign")
 
     region, basis = resolve_region_basis(region, basis, cost_basis)

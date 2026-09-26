@@ -373,6 +373,8 @@ def _add_probability_metrics(
     summary[f"ci_low_{suffix}"] = ci_low
     summary[f"ci_high_{suffix}"] = ci_high
     summary[f"count_{suffix}"] = count
+    if count == 0 or count == n_samples:
+        summary[f"count_display_{suffix}"] = f"{count} of {n_samples} runs"
     # A zero binomial MCSE is mathematically correct but misleading as a printed uncertainty.
     summary[f"mcse_{suffix}"] = (
         float(np.sqrt(probability * (1.0 - probability) / n_samples))
@@ -527,6 +529,8 @@ def compute_conditions_table(
 ) -> pd.DataFrame:
     """Compute parameter medians and IQRs stratified by sustained break-even horizon."""
     mask = (results.be_years <= conditions_horizon) & (~np.isnan(results.be_years))
+    n_success = int(np.sum(mask))
+    n_failure = int(np.sum(~mask))
     rows = []
     for k, v in results.sampled_params.items():
         s, f = v[mask], v[~mask]
@@ -534,6 +538,8 @@ def compute_conditions_table(
             {
                 "parameter": k,
                 "conditions_horizon": conditions_horizon,
+                "n_success": n_success,
+                "n_failure": n_failure,
                 "success_median": float(np.median(s)) if len(s) else np.nan,
                 "success_iqr": float(np.percentile(s, 75) - np.percentile(s, 25))
                 if len(s)
@@ -542,6 +548,14 @@ def compute_conditions_table(
                 "failure_iqr": float(np.percentile(f, 75) - np.percentile(f, 25))
                 if len(f)
                 else np.nan,
+                f"success_median_by_{conditions_horizon}yr": float(np.median(s)) if len(s) else np.nan,
+                f"success_iqr_by_{conditions_horizon}yr": float(
+                    np.percentile(s, 75) - np.percentile(s, 25)
+                ) if len(s) else np.nan,
+                f"failure_median_by_{conditions_horizon}yr": float(np.median(f)) if len(f) else np.nan,
+                f"failure_iqr_by_{conditions_horizon}yr": float(
+                    np.percentile(f, 75) - np.percentile(f, 25)
+                ) if len(f) else np.nan,
             }
         )
     return pd.DataFrame(rows)
