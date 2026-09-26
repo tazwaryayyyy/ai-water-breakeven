@@ -1,6 +1,6 @@
-# [Project name]
+# AI Water Break-Even
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A standalone interactive Monte Carlo demonstration that lets people explore when illustrative AI-enabled water savings could offset illustrative AI water use.
 
 ## Run & Operate
 
@@ -19,26 +19,38 @@ _Replace the heading above with the project's name, and this line with one sente
 - Validation: Zod (`zod/v4`), `drizzle-zod`
 - API codegen: Orval (from OpenAPI spec)
 - Build: esbuild (CJS bundle)
+- Frontend: React + Vite, Recharts, Tailwind CSS
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/ai-water-break-even/src/simulation.ts` — seeded Monte Carlo engine, distributions, aggregation, break-even detection, sensitivity calculations, and scenario cases.
+- `artifacts/ai-water-break-even/src/App.tsx` — the interactive scientific demonstration surface and export controls.
+- `artifacts/ai-water-break-even/src/index.css` — the parchment/teal/amber instrument visual language.
+- `artifacts/ai-water-break-even` — the deployable web artifact at `/`.
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Simulation calculations are isolated from the UI and use a seeded PRNG so the same assumptions and seed reproduce the same model outputs.
+- Sustained break-even counts only when cumulative net balance reaches zero or above and remains there through the end of the selected horizon.
+- The app is frontend-only by design; it has no auth, database, external data, LLM calls, or research-repository dependency.
+- Percentages and sensitivity rankings are derived from Monte Carlo runs; default values are labeled illustrative and are not research findings.
+- Scenario comparison runs the same engine with baseline, more-savings-realized, and difficult-condition configurations.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- Users adjust burden, savings, adoption, attribution, horizon, run count, and seed assumptions.
+- The app shows cumulative burden, cumulative savings, net balance, middle-50% and middle-90% uncertainty envelopes, break-even probabilities, distributions, scenario comparisons, sensitivity reruns, a deterministic explanation, and an expandable method view.
+- Current results can be exported as CSV or JSON, and the main chart can be downloaded as PNG.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- Do not use generic “AI slop” components or dashboard styling; keep the experience chart-led, restrained, and scientifically honest.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Run the web artifact through its managed workflow so `PORT`, `BASE_PATH`, and preview routing are present.
+- The app build emits a non-blocking Vite sourcemap warning from the scaffold tooltip component and a chunk-size warning; typecheck and build still pass.
+- The Monte Carlo result object intentionally excludes runtime timing so exact seed reproducibility is not polluted by machine speed.
 
 ## Pointers
 

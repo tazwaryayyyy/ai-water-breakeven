@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "AI Water Break-Even"
+description = "A standalone interactive Monte Carlo simulator that helps non-technical people explore when AI-enabled water savings could theoretically offset AI water use under illustrative assumptions."
+version = "1.0.0"
+id = "artifacts/ai-water-break-even"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22183
+
+[services.development]
+run = "pnpm --filter @workspace/ai-water-break-even run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/ai-water-break-even", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/ai-water-break-even/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22183"
+BASE_PATH = "/"
