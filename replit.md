@@ -25,7 +25,7 @@ A standalone interactive Monte Carlo demonstration that lets people explore when
 
 - `artifacts/ai-water-break-even/src/simulation.ts` — seeded Monte Carlo engine, distributions, aggregation, break-even detection, sensitivity calculations, and scenario cases.
 - `artifacts/ai-water-break-even/src/App.tsx` — the interactive scientific demonstration surface and export controls.
-- `artifacts/ai-water-break-even/src/index.css` — the parchment/teal/amber instrument visual language.
+- `artifacts/ai-water-break-even/src/index.css` — the quiet editorial research-graphic visual language.
 - `artifacts/ai-water-break-even` — the deployable web artifact at `/`.
 
 ## Architecture decisions
@@ -45,6 +45,7 @@ A standalone interactive Monte Carlo demonstration that lets people explore when
 ## User preferences
 
 - Do not use generic “AI slop” components or dashboard styling; keep the experience chart-led, restrained, and scientifically honest.
+- Treat the page as one continuous research graphic: plain warm background, large primary figure, compact assumptions, thin rules, direct annotations, and color reserved for data meaning.
 
 ## Gotchas
 
