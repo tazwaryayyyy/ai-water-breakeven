@@ -333,7 +333,7 @@ function ProbabilityPlot({ result }: { result: SimulationResult }) {
       </div>
       <div className="probability-chart">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 12, right: 12, left: -18, bottom: 8 }}>
+          <LineChart data={data} margin={{ top: 12, right: 12, left: 0, bottom: 8 }}>
             <CartesianGrid stroke={COLORS.grid} vertical={false} />
             <XAxis type="number" dataKey="year" domain={[10, 50]} ticks={[10, 20, 30, 50]} tickLine={false} axisLine={false} tick={{ fill: COLORS.text, fontSize: 11 }} tickFormatter={(year) => `${year} years`} />
             <YAxis domain={[0, 1]} tickLine={false} axisLine={false} tick={{ fill: COLORS.text, fontSize: 11 }} tickFormatter={formatPercent} width={42} />
@@ -355,17 +355,11 @@ function SimulationSection({ result }: { result: SimulationResult }) {
           <span className="section-number">01</span>
           <h2>Simulation</h2>
         </div>
-        <div className="live-result">
-          <span>30-year sustained break-even</span>
-          <strong>{formatPercent(result.probabilities[30])}</strong>
-          <span>of simulated paths</span>
-          <small>{result.medianBreakEvenYear ? `Median sustained crossing: year ${result.medianBreakEvenYear}` : 'Median path does not reach sustained break-even'}</small>
-        </div>
       </div>
       <div className="chart-tools">
         <div className="chart-title">
           <h3>Cumulative water balance</h3>
-          <p>AI water burden, AI-enabled savings, and their difference over time.</p>
+          <p>AI water burden, AI-enabled savings, and their difference over time (million m³).</p>
         </div>
         <div className="export-actions">
           <button onClick={() => exportCSV(result)}>CSV</button>

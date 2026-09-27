@@ -1,0 +1,1084 @@
+You are editing an existing, already redesigned standalone application called:
+
+AI Water Break-Even
+
+This is the final pass before showcase.
+
+Your task is not to invent a new design.
+
+Your task is to inspect the application that actually exists now and make only the changes that are demonstrably worthwhile.
+
+The existing implementation is the source of truth.
+
+Do not assume that the current app still matches an earlier screenshot, an earlier prompt, or an earlier description. Inspect the actual current code and rendered UI first.
+
+The goal is not to maximize the number of changes.
+
+The goal is to maximize the quality of the final result while minimizing unnecessary edits.
+
+0. HIGHEST-PRIORITY RULE
+PRESERVE GOOD WORK.
+
+Treat the current implementation as potentially finished.
+
+Do not change something simply because you would personally design it differently.
+
+Do not redesign the layout from scratch.
+
+Do not replace the current visual language with another visual language.
+
+Do not introduce a new design system.
+
+Do not perform a broad refactor for aesthetic reasons.
+
+Do not "modernize" components merely because they can be modernized.
+
+Do not add features.
+
+Do not rewrite the simulation.
+
+Do not rewrite the page from your imagination.
+
+Inspect first. Decide second. Edit third.
+
+A small, high-quality diff is preferable to a large redesign.
+
+It is completely acceptable to conclude that some areas should remain unchanged.
+
+1. SOURCE OF TRUTH
+
+Use this hierarchy when making decisions:
+
+Highest authority
+The current running application.
+The current source code.
+The current simulation behavior.
+The current rendered output at multiple viewport sizes.
+Secondary authority
+The requirements in this prompt.
+Lowest authority
+Earlier screenshots, previous prompts, previous descriptions, or assumptions about what the current implementation "probably" looks like.
+
+If the current implementation differs from anything previously described, the current implementation wins.
+
+Do not reconstruct an earlier design.
+
+Do not restore an earlier component merely because it was mentioned in a previous prompt.
+
+2. FIRST ACTION: DIAGNOSE, DO NOT EDIT
+
+Before modifying anything, inspect:
+
+Application structure
+components
+layout
+styling
+chart implementation
+simulation engine
+state management
+export logic
+responsive behavior
+Current rendered UI
+
+Inspect at minimum:
+
+desktop
+tablet
+mobile
+
+and inspect the actual current application, not a mock approximation.
+
+Important simulation states
+
+Inspect at least:
+
+default seeded scenario
+a scenario that reaches sustained break-even
+a scenario that does not
+an early break-even case if possible
+zero/near-zero savings if supported
+low simulation count if supported
+Existing copy
+
+Read every visible piece of copy.
+
+Existing interactions
+
+Test:
+
+controls
+recalculation
+reset
+randomize
+expansion/collapse
+tooltips
+exports
+responsive interactions.
+3. CREATE A BASELINE BEFORE EDITING
+
+Before changing the code, record a baseline for the simulation.
+
+Use fixed parameter sets and fixed seeds.
+
+At minimum record:
+
+summary probabilities
+sustained break-even outcomes
+median crossing
+final net balance
+distribution counts
+sensitivity output
+scenario outputs
+
+The exact existing output values are the baseline.
+
+After the visual refinement, rerun the same tests.
+
+For the same parameters and seed:
+
+simulation outputs must remain identical unless an actual bug is being fixed.
+
+This is a hard requirement.
+
+A visual redesign must not silently alter the scientific model.
+
+4. WHAT "NON-AI-SLOP" MEANS FOR THIS PASS
+
+Do not interpret "non-AI-slop" as:
+
+use a particular font
+use a particular color palette
+make it minimalist
+make it editorial
+remove every card
+remove every border
+use serif typography
+use sans-serif typography
+imitate a publication
+make it look expensive
+make it look futuristic.
+
+Those are aesthetic recipes.
+
+Do not use recipes.
+
+For this project, define unnecessary design as:
+
+Any element that consumes visual attention without materially improving comprehension, manipulation, orientation, or trust.
+
+Examples of legitimate elements:
+
+a chart label identifying a data series
+a control that changes a model parameter
+a value showing the current result
+a method disclosure
+a necessary unit
+a useful annotation
+an export control
+a navigation element that actually helps orientation.
+
+Examples of suspicious elements:
+
+decorative badges
+repeated disclaimers
+ornamental labels
+generic product-status indicators
+filler descriptions
+decorative backgrounds
+duplicated metrics
+redundant explanatory cards
+animations without informational purpose
+arbitrary icons
+decorative lines
+visual containers that do not establish a meaningful relationship.
+
+This distinction should drive the edit.
+
+5. NO STYLE IMITATION
+
+Do not imitate:
+
+Financial Times
+Stripe
+Linear
+Apple
+Notion
+a specific magazine
+a specific research publication
+a specific website
+a Dribbble design
+a Behance design.
+
+The goal is not to make the project resemble another product.
+
+The visual identity should emerge naturally from this project's information.
+
+6. DO NOT INVENT A NEW HERO
+
+Do not rewrite the opening simply because another headline sounds more sophisticated.
+
+Inspect the current title.
+
+Change it only if there is a concrete problem such as:
+
+ambiguity
+awkward wording
+excessive theatricality
+poor comprehension
+excessive length
+obvious AI-generated phrasing.
+
+If the current title is already strong, leave it alone.
+
+Do not replace a good title just to make the page feel different.
+
+7. COPY: FORENSIC EDITING ONLY
+
+Read every visible sentence.
+
+For each sentence ask:
+
+Does the viewer need this?
+Does it communicate information not already obvious?
+Does it use natural language?
+Is it specific to this simulation?
+Does it sound like a human researcher/editor rather than product-generated copy?
+
+Only edit when there is a genuine problem.
+
+Do not rewrite all copy for consistency.
+
+Do not replace good sentences with generic alternatives.
+
+8. BAN GENERIC PRODUCT COPY
+
+Remove or rewrite language that sounds like an AI-generated product interface, such as:
+
+"Explore..."
+"Discover..."
+"What happened across the runs?"
+"What changes the answer?"
+"Move an assumption..."
+"Rerun the world."
+"Under the hood"
+"Unlock..."
+"Powerful..."
+"Dive into..."
+"See what happens..."
+"Take a closer look..."
+"This interactive experience..."
+"Designed to..."
+"At a glance..."
+"Let's explore..."
+
+But do not perform a global blind search-and-replace.
+
+A phrase should be changed because it sounds unnatural in context, not because it appears on a blacklist.
+
+9. SCIENTIFIC DISCLOSURES
+
+Scientific honesty must remain.
+
+But do not surround the interface with defensive disclaimers.
+
+Do not automatically add:
+
+"not a forecast"
+"not empirical"
+"not measured"
+"not predictive"
+"not real-world"
+"illustrative"
+"hypothetical"
+
+repeatedly.
+
+Instead:
+
+Keep the minimum disclosure necessary to correctly characterize the demonstration.
+
+The current wording should be retained if it is already clear.
+
+If it is repetitive, consolidate it.
+
+If it is ambiguous, improve it.
+
+Do not arbitrarily enforce "exactly one" disclosure.
+
+The goal is:
+
+clear scientific characterization without visual clutter.
+
+10. PRIMARY VISUALIZATION
+
+The main simulation chart is the most important component.
+
+Do not replace its chart type unless the current chart is genuinely unsuitable for communicating the model.
+
+Do not rebuild it just for aesthetic novelty.
+
+Inspect:
+
+hierarchy of lines
+axis readability
+unit visibility
+uncertainty visibility
+crossing visibility
+labels
+annotation placement
+whitespace
+tooltip behavior
+mobile behavior.
+
+The viewer must quickly understand the relationship between:
+
+AI water burden
+
+and
+
+AI-enabled water savings
+
+over time.
+
+11. DATA SHOULD DETERMINE VISUAL WEIGHT
+
+Do not give every plotted quantity equal visual weight.
+
+Determine what is conceptually primary from the current model.
+
+The main competing trajectories should remain visually distinct.
+
+Supporting quantities should be quieter.
+
+Uncertainty should remain visible without overpowering the central trajectories.
+
+Reference lines should remain subordinate.
+
+Do not manipulate opacity or thickness simply to "make it beautiful."
+
+Every visual distinction should communicate hierarchy.
+
+12. DIRECT LABELING
+
+Evaluate whether the current chart would be easier to read with direct labels.
+
+If direct labels genuinely improve comprehension without causing overlap or visual noise, use them.
+
+If the existing legend is clearer at the current density, keep it.
+
+Do not mechanically replace every legend with direct labels.
+
+The criterion is:
+
+minimum eye travel with minimum clutter.
+
+Direct labeling is a well-established way to reduce unnecessary movement between a chart and its key, but it is not automatically correct in every layout.
+
+13. ANNOTATIONS
+
+Inspect existing annotations individually.
+
+Keep an annotation only when it points to a meaningful feature that the reader could reasonably miss.
+
+Good candidates include:
+
+sustained break-even
+an important crossing
+an important discontinuity
+a notable outcome boundary.
+
+Remove annotations that merely describe something already obvious from the chart.
+
+Do not impose an arbitrary annotation count.
+
+Instead use:
+
+As few annotations as required for comprehension.
+
+Annotations must be attached to the actual underlying data.
+
+Never hard-code an annotation to a year such as "Year 19" if that value can change with parameters.
+
+It must be calculated from the current simulation.
+
+Annotations should remain readable at narrow widths; when necessary, adapt or reposition them rather than allowing overlap or clipping.
+
+14. BREAK-EVEN LANGUAGE
+
+Use the project's actual definition of sustained break-even.
+
+Do not casually replace it with phrases such as:
+
+"success"
+"win"
+"positive outcome"
+"profitable"
+"better"
+"AI becomes sustainable."
+
+Those introduce interpretations that the model does not necessarily establish.
+
+Use precise language such as:
+
+sustained break-even
+
+reaches sustained break-even by year 30
+
+does not reach sustained break-even within the selected horizon
+
+when appropriate.
+
+15. RESULT PRESENTATION
+
+Inspect the current result presentation.
+
+The primary result should be easy for a non-technical viewer to understand.
+
+Prefer a hierarchy like:
+
+the result
+
+then:
+
+what the percentage refers to
+
+then:
+
+supporting statistics
+
+But do not impose a specific layout if the current one already achieves this.
+
+Do not create additional KPI cards just because there are multiple statistics.
+
+Do not repeat the same number in multiple places unless repetition genuinely aids orientation.
+
+16. NUMBER AND UNIT AUDIT
+
+Perform a meticulous pass over every number.
+
+Check:
+
+unit
+scale
+rounding
+percentage precision
+year formatting
+sign convention
+positive/negative presentation
+thousands separators
+large-number readability.
+
+Do not introduce false precision.
+
+Do not obscure meaningful differences by excessive rounding.
+
+Do not change the underlying values.
+
+Only change display formatting.
+
+17. AXIS AUDIT
+
+Every axis should make sense without requiring the viewer to hunt for context.
+
+Check:
+
+title
+unit
+tick density
+year labels
+zero line
+sign direction
+minimum/maximum range.
+
+Do not add axis elements just because charts "usually have them."
+
+Do not remove necessary orientation.
+
+The goal is sufficient context with minimal visual noise.
+
+18. TOOLTIP AUDIT
+
+Tooltips should provide information that is difficult to show statically.
+
+For a time-series hover, relevant information may include:
+
+year
+burden
+savings
+net balance
+relevant uncertainty information if currently supported.
+
+Do not duplicate entire chart descriptions inside the tooltip.
+
+Do not write conversational filler.
+
+Do not make the tooltip a mini-dashboard.
+
+19. ASSUMPTION CONTROLS
+
+Do not change the number of controls merely because another number seems cleaner.
+
+Inspect the current controls.
+
+For each one, check:
+
+Is the name understandable?
+Is the current value immediately visible?
+Is the unit clear?
+Is the effect of changing it reasonably understandable?
+Is the control physically easy to manipulate?
+Is the range sensible?
+Does the UI prevent or clearly handle invalid values?
+
+Keep genuinely useful controls.
+
+Do not add new assumptions to make the demo look more sophisticated.
+
+Do not remove existing assumptions that are important to the simulation.
+
+20. CONTROL HIERARCHY
+
+If the current application already has primary and secondary assumptions, preserve that hierarchy.
+
+If not, determine whether one is genuinely needed.
+
+Secondary technical parameters such as:
+
+seed
+number of simulations
+horizon
+
+may be visually quieter than core scenario assumptions.
+
+But do not hide important information merely to make the page prettier.
+
+This is a judgment call based on the current implementation.
+
+21. RECALCULATION INTERACTION
+
+Preserve the existing recalculation behavior.
+
+Do not turn calculation into theatre.
+
+No:
+
+fake progress bars
+fake "AI thinking"
+spinning model icons
+dramatic loading sequences
+unnecessary full-page animations.
+
+A small status update is sufficient.
+
+The actual computation is the interesting event.
+
+22. REPRODUCIBILITY
+
+Preserve seeded reproducibility exactly.
+
+The interface may expose:
+
+seed
+simulation count
+
+where useful.
+
+But do not make reproducibility a decorative status badge.
+
+It is technical information, not branding.
+
+23. SECONDARY FIGURES
+
+For every secondary visualization, ask:
+
+Does this add a distinct piece of understanding that the primary chart does not?
+
+Keep figures that do.
+
+Refine figures that are useful but visually noisy.
+
+Remove or de-emphasize anything that merely repeats the main result.
+
+Do not add new visualizations.
+
+24. BREAK-EVEN DISTRIBUTION
+
+Preserve the distribution if it provides information beyond the main cumulative trajectory.
+
+Make these categories unambiguous.
+
+In particular, distinguish:
+
+break-even within the horizon
+
+from
+
+never reaches sustained break-even within the horizon.
+
+Do not visually imply that "never" is a numerical year.
+
+Do not treat "never" as an error state.
+
+25. SENSITIVITY
+
+Preserve the existing sensitivity method and output.
+
+Do not replace it with another statistical method merely because the alternative sounds more sophisticated.
+
+Only refine:
+
+readability
+labels
+scale
+ordering
+spacing
+explanation.
+
+Do not hard-code a "winner."
+
+Do not use subjective language such as "most important assumption" unless it is clearly defined by the selected sensitivity metric.
+
+26. SCENARIOS
+
+Preserve the current scenario comparison if it is useful.
+
+Do not redesign it into cards merely to create visual variety.
+
+Do not change scenario assumptions.
+
+Do not relabel scenarios as:
+
+best
+worst
+likely
+realistic
+optimal
+
+unless those meanings are explicitly part of the model.
+
+Scenarios are scenarios.
+
+27. COLOR
+
+Do not introduce a new palette.
+
+Do not alter an already coherent palette without a concrete reason.
+
+Audit the semantic use of the existing colors.
+
+A color should have one stable meaning where possible.
+
+Avoid using color merely as decoration.
+
+Check that the meaning survives:
+
+desktop
+mobile
+grayscale-ish conditions
+color-vision limitations.
+
+Do not solve this by adding visual clutter.
+
+28. TYPOGRAPHY
+
+Do not switch fonts simply because another font looks more sophisticated.
+
+Inspect the existing typography for actual problems:
+
+poor legibility
+excessive sizes
+too many hierarchy levels
+cramped text
+awkward letter spacing
+inconsistent numerals
+poor line-height.
+
+Fix only genuine problems.
+
+Do not turn typography into the visual identity of the project.
+
+The typography should support the data.
+
+29. LAYOUT
+
+Do not move sections for novelty.
+
+Check actual relationships:
+
+Does the eye naturally move from question → result → simulation → controls → supporting evidence?
+Is anything visually louder than its importance?
+Is anything important buried?
+Are unrelated elements accidentally grouped?
+Is there unnecessary repetition?
+Are major figures given enough space?
+
+Make changes only where the answer is clearly yes.
+
+Do not force symmetry.
+
+Do not force a card grid.
+
+Do not force an editorial composition.
+
+30. CONTAINERS AND BORDERS
+
+Inspect every container.
+
+For each border/background/card treatment, ask:
+
+Does this separation communicate a real conceptual boundary?
+
+If yes, keep it.
+
+If no, simplify it.
+
+Do not remove borders indiscriminately.
+
+Do not add cards merely because a section currently feels too open.
+
+Whitespace is a legitimate layout element.
+
+31. BACKGROUND AND DECORATION
+
+Do not add decorative grids, textures, patterns, gradients, glow, noise, or atmospheric effects unless they have a genuine information-design purpose.
+
+Likewise, do not remove a subtle existing element simply because "AI sites use it."
+
+Evaluate what it does in this particular design.
+
+Decorative elements should be the easiest things to eliminate if they compete with the model.
+
+32. RESPONSIVE BEHAVIOR
+
+Inspect the actual layout at several widths.
+
+Do not simply shrink the desktop layout.
+
+Check:
+
+title wrapping
+result wrapping
+chart dimensions
+axis labels
+annotations
+tooltips
+assumptions
+expandable sections
+scenario comparisons
+sensitivity labels
+exports.
+
+No text should collide.
+
+No important chart label should disappear merely because the viewport is narrow.
+
+Where a desktop annotation cannot survive on mobile, use an intentional mobile treatment rather than squeezing it into the plot. Responsive annotation systems commonly move or simplify annotations on small screens for exactly this reason.
+
+33. ACCESSIBILITY
+
+Improve accessibility without visually bloating the interface.
+
+Check:
+
+keyboard access
+focus state
+semantic buttons
+range input labels
+contrast
+readable text
+non-color distinctions where necessary.
+
+Do not add visible accessibility widgets unless necessary.
+
+Accessibility improvements should normally be structural and subtle.
+
+34. ANIMATION
+
+Inspect the existing animation.
+
+Keep animation only when it communicates state or creates a useful transition.
+
+Good:
+
+chart transition after recalculation
+expand/collapse transition
+hover feedback.
+
+Bad:
+
+decorative entrance animations
+floating UI
+animated background
+counter theatrics
+constant motion
+fake computation animations.
+
+If an animation does not improve understanding, remove it.
+
+35. SCIENTIFIC INTEGRITY
+
+Never alter the scientific meaning for visual reasons.
+
+Never:
+
+tune the random seed to obtain attractive results
+alter defaults to create an earlier crossing
+change distributions because a chart looks messy
+suppress awkward outcomes
+remove "never" outcomes
+change uncertainty because it looks too wide
+manually rewrite a computed result
+hard-code a favorable interpretation.
+
+The design must accommodate the simulation.
+
+The simulation must never be made to accommodate the design.
+
+36. NO NEW SCIENTIFIC CLAIMS
+
+Do not introduce claims such as:
+
+"AI reduces water use"
+"AI can offset its footprint"
+"AI is water positive"
+"AI becomes sustainable"
+"AI will reach break-even"
+"this proves..."
+"this demonstrates that AI..."
+
+unless the current model and wording explicitly justify them.
+
+The application is a scenario simulation.
+
+Present simulated outcomes as simulated outcomes.
+
+Do not turn them into real-world claims.
+
+37. NO NEW DEPENDENCIES UNLESS NECESSARY
+
+Do not introduce a new library simply to accomplish a visual effect that the existing stack can already handle.
+
+Prefer existing project dependencies.
+
+Do not replace the charting stack during this pass.
+
+Do not replace the frontend architecture.
+
+Do not migrate frameworks.
+
+This is a refinement.
+
+38. DO NOT REWRITE COMPONENTS FOR STYLE ALONE
+
+Before rewriting a component, ask:
+
+Is the current implementation preventing the desired visual or interaction correction?
+
+If no:
+
+do not rewrite it.
+
+A component's implementation style is not the objective.
+
+The rendered result is.
+
+39. FINAL ANTI-SLOP REVIEW
+
+After making the necessary changes, inspect the finished page as if you had never seen the code.
+
+Look specifically for:
+
+Generic language
+
+Would this sentence appear unchanged on 100 unrelated AI products?
+
+If yes, rewrite it or remove it.
+
+Generic UI
+
+Would this component exist in a generic dashboard template?
+
+If yes, verify that it has a real job.
+
+Decorative structure
+
+Does this border, badge, icon, line, background, or animation communicate anything?
+
+If no, consider removing it.
+
+Repetition
+
+Is the same information communicated in multiple places without a reason?
+
+Remove the weaker instance.
+
+Credibility theatre
+
+Does anything exist primarily to make the application look scientific rather than communicate scientific information?
+
+Remove it.
+
+Product theatre
+
+Does anything exist primarily to make the application look like a sophisticated product?
+
+Remove it.
+
+Over-explanation
+
+Could a competent reader understand the page without this sentence?
+
+If yes, consider removing it.
+
+40. FINAL HUMAN-DESIGN TEST
+
+The final application should pass these five tests:
+
+Test 1 — five seconds
+
+A non-technical person can answer:
+
+What is this showing?
+
+without reading the Method section.
+
+Test 2 — one minute
+
+They can identify:
+
+AI water burden
+AI-enabled savings
+break-even
+uncertainty.
+Test 3 — interaction
+
+They can change an assumption and understand what changed.
+
+Test 4 — scientific honesty
+
+A number is never visually presented as something stronger than what the model actually establishes.
+
+Test 5 — authorship
+
+The page feels like a person deliberately designed a specific visualization for this particular research question.
+
+It should not feel like a generic AI-generated template.
+
+41. REGRESSION TESTS
+
+After edits, rerun the baseline cases from Section 3.
+
+Verify:
+
+same seed → identical simulation output
+different seed → stochastic output can change
+break-even logic unchanged
+uncertainty unchanged
+sensitivity calculations unchanged
+scenario calculations unchanged
+exports still contain the correct values
+reset still works
+randomize still works
+all current controls still work
+low-run warning still works
+zero-savings behavior still works
+no-break-even behavior still works.
+
+Also verify:
+
+no console errors
+no broken imports
+no layout overflow
+no clipped labels
+no inaccessible controls.
+42. CHANGE BUDGET
+
+Use a minimum-change principle.
+
+Do not make a large edit simply because a large edit is possible.
+
+Prefer:
+
+one precise improvement
+
+over:
+
+ten stylistic changes.
+
+If three possible changes would all improve the page slightly, choose the one with the greatest effect on comprehension.
+
+Do not make all three merely for completeness.
+
+43. STOP CONDITION
+
+This is extremely important.
+
+After the concrete problems identified during inspection are fixed:
+
+STOP.
+
+Do not continue "polishing."
+
+Do not search for things to change simply to produce a larger diff.
+
+Do not redesign already-good components.
+
+Do not introduce new visual ideas after the acceptance criteria pass.
+
+A final design becomes worse when the agent continues optimizing after the meaningful problems are gone.
+
+44. FINAL IMPLEMENTATION RULE
+
+Before every change, answer internally:
+
+What specific defect am I fixing?
+
+Then:
+
+Why is this change better for this particular project?
+
+Then:
+
+Could the same improvement be achieved with a smaller change?
+
+If you cannot answer those three questions convincingly:
+
+do not make the change.
+
+45. FINAL DELIVERABLE
+
+Implement the necessary refinements directly.
+
+Do not ask me to choose between multiple design directions.
+
+Do not create alternative themes.
+
+Do not create a second redesign.
+
+Do not present speculative options.
+
+Use the existing implementation and make the strongest reasonable judgment.
+
+At the end, verify:
+
+visual quality improved
+no good existing functionality was removed
+no scientific logic changed
+no existing successful interaction regressed
+no unnecessary dependency was introduced
+no generic AI-product language remains where it can reasonably be removed
+responsive behavior works
+the main simulation remains the visual center
+the final result is calmer and more specific than before.
+
+Then stop.
+
+THE FINAL PRINCIPLE
+
+Do not try to make the app look impressive.
+
+Make it so well-resolved that it doesn't need to look impressive.
+
+The simulation, the uncertainty, the crossing, and the relationship between assumptions and outcomes should provide the visual interest.
+
+Everything else should get out of their way.
