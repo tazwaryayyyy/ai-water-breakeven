@@ -304,7 +304,7 @@ function MainChart({ result }: { result: SimulationResult }) {
           <CartesianGrid stroke={COLORS.grid} vertical={false} />
           <XAxis dataKey="year" tickLine={false} axisLine={false} tick={{ fill: COLORS.text, fontSize: 11 }} tickFormatter={(year) => `Y${year}`} />
           <YAxis tickLine={false} axisLine={false} tick={{ fill: COLORS.text, fontSize: 11 }} tickFormatter={formatWater} width={50} />
-          <Tooltip cursor={{ stroke: 'hsl(210 10% 46% / .3)' }} contentStyle={{ border: '1px solid hsl(40 11% 82%)', borderRadius: 0, background: COLORS.background, fontSize: 11 }} formatter={(value: number, name: string) => [`${formatWater(value)}M m³`, name === 'burden' ? 'Cumulative burden' : name === 'savings' ? 'Cumulative savings' : 'Net balance']} labelFormatter={(label) => `Year ${label}`} />
+          <Tooltip cursor={{ stroke: 'hsl(210 10% 46% / .3)' }} contentStyle={{ border: '1px solid hsl(40 11% 82%)', borderRadius: 0, background: COLORS.background, fontSize: 11 }} itemStyle={{ color: COLORS.text }} formatter={(value: number, name: string) => [`${formatWater(value)}M m³`, name === 'burden' ? 'Cumulative burden' : name === 'savings' ? 'Cumulative savings' : 'Net balance']} labelFormatter={(label) => `Year ${label}`} />
           <ReferenceLine y={0} stroke="hsl(210 10% 46% / .75)" strokeDasharray="4 4" label={{ value: 'Break-even', position: 'insideTopLeft', fill: COLORS.text, fontSize: 10 }} />
           <Area isAnimationActive={false} type="monotone" dataKey="netWideUpper" stroke="none" fill="hsl(210 10% 46% / .08)" />
           <Area isAnimationActive={false} type="monotone" dataKey="netWideLower" stroke="none" fill={COLORS.background} />
