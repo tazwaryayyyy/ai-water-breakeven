@@ -632,7 +632,11 @@ function Home() {
         ) : (
           <div className="loading-state">Running the first simulation…</div>
         )}
-        <footer className="site-footer">Interactive Monte Carlo model. Default values are illustrative assumptions.</footer>
+        <footer className="site-footer">
+          <span>Interactive Monte Carlo model. Default values are illustrative assumptions.</span>
+          <br />
+          <small>Made by Tazwar</small>
+        </footer>
       </main>
     </div>
   );
