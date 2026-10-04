@@ -26,7 +26,9 @@ def _save(
     has_ph: bool,
     is_mix: bool,
     cost_scope: str | None = None,
+    basis_notice: str | None = None,
 ) -> None:
+    y_footer = 0.01
     if has_ph:
         fig.text(
             0.5,
@@ -42,20 +44,31 @@ def _save(
         )
         fig.text(
             0.5,
-            0.01,
+            y_footer,
             "PLACEHOLDER INPUTS - NOT FOR PUBLICATION",
             fontsize=8,
             color="darkred",
             ha="center",
             weight="bold",
         )
+        y_footer += 0.025
     if is_mix:
         fig.text(
             0.5,
-            0.035 if has_ph else 0.01,
+            y_footer,
             "Warning: Mixed physical basis (cost consumption vs benefit withdrawal)",
             fontsize=8,
             color="darkorange",
+            ha="center",
+        )
+        y_footer += 0.025
+    if basis_notice:
+        fig.text(
+            0.5,
+            y_footer,
+            basis_notice,
+            fontsize=7,
+            color="#444444",
             ha="center",
         )
     if cost_scope:
@@ -101,7 +114,14 @@ def plot_breakeven_distribution(res: SimulationResults, out: Path) -> None:
         title="Distribution of Sustained Break-Even Horizon",
     )
     ax.legend(frameon=False)
-    _save(fig, out, res.has_placeholder, res.is_mixed_basis, cost_scope=res.cost_scope)
+    _save(
+        fig,
+        out,
+        res.has_placeholder,
+        res.is_mixed_basis,
+        cost_scope=res.cost_scope,
+        basis_notice=res.basis_notice,
+    )
 
 
 def plot_probability_vs_horizon(res: SimulationResults, out: Path) -> None:
@@ -126,7 +146,14 @@ def plot_probability_vs_horizon(res: SimulationResults, out: Path) -> None:
                 labels.append(f"{h} yr: {count / res.n_samples:.3f} [{low:.3f}, {high:.3f}]")
     if labels:
         ax.text(0.02, 0.98, "\n".join(labels), transform=ax.transAxes, va="top", fontsize=8)
-    _save(fig, out, res.has_placeholder, res.is_mixed_basis, cost_scope=res.cost_scope)
+    _save(
+        fig,
+        out,
+        res.has_placeholder,
+        res.is_mixed_basis,
+        cost_scope=res.cost_scope,
+        basis_notice=res.basis_notice,
+    )
 
 
 def plot_net_balance_fan_chart(res: SimulationResults, out: Path) -> None:
@@ -157,7 +184,14 @@ def plot_net_balance_fan_chart(res: SimulationResults, out: Path) -> None:
     )
     ax.legend(loc="upper left", frameon=False)
     ax.grid(True, linestyle=":", alpha=0.5)
-    _save(fig, out, res.has_placeholder, res.is_mixed_basis, cost_scope=res.cost_scope)
+    _save(
+        fig,
+        out,
+        res.has_placeholder,
+        res.is_mixed_basis,
+        cost_scope=res.cost_scope,
+        basis_notice=res.basis_notice,
+    )
 
 
 def plot_tornado_chart(
@@ -166,6 +200,7 @@ def plot_tornado_chart(
     has_ph: bool = True,
     is_mix: bool = False,
     cost_scope: str | None = None,
+    basis_notice: str | None = None,
 ) -> None:
     fig, ax = plt.subplots(figsize=(8.5, 5.2))
     sub = df.head(10).iloc[::-1]
@@ -181,12 +216,13 @@ def plot_tornado_chart(
     )
     ax.legend(frameon=False)
     ax.grid(True, linestyle=":", alpha=0.5)
-    _save(fig, out, has_ph, is_mix, cost_scope=cost_scope)
+    _save(fig, out, has_ph, is_mix, cost_scope=cost_scope, basis_notice=basis_notice)
 
 
 def plot_scope_comparison(r0: SimulationResults, r1: SimulationResults, out: Path) -> None:
     fig, ax = plt.subplots(figsize=(7, 4.2))
     t = np.arange(1, r0.t_horizon + 1)
+    notice = r0.basis_notice or r1.basis_notice
     if r0.cost_scope == "scope 1+2 combined":
         ax.plot(
             t,
@@ -204,7 +240,14 @@ def plot_scope_comparison(r0: SimulationResults, r1: SimulationResults, out: Pat
         ax.legend(frameon=False)
         ax.grid(True, linestyle=":", alpha=0.6)
         _annotate_horizon_probability(ax, r0)
-        _save(fig, out, r0.has_placeholder, r0.is_mixed_basis, cost_scope=r0.cost_scope)
+        _save(
+            fig,
+            out,
+            r0.has_placeholder,
+            r0.is_mixed_basis,
+            cost_scope=r0.cost_scope,
+            basis_notice=notice,
+        )
         return
     ax.plot(
         t,
@@ -236,11 +279,16 @@ def plot_scope_comparison(r0: SimulationResults, r1: SimulationResults, out: Pat
         r0.has_placeholder or r1.has_placeholder,
         r0.is_mixed_basis or r1.is_mixed_basis,
         cost_scope=r0.cost_scope,
+        basis_notice=notice,
     )
 
 
 def plot_knockout_probabilities(
-    df: pd.DataFrame, out: Path, has_ph: bool, cost_scope: str | None = None
+    df: pd.DataFrame,
+    out: Path,
+    has_ph: bool,
+    cost_scope: str | None = None,
+    basis_notice: str | None = None,
 ) -> None:
     """Draw common-random-number knockout probabilities with Wilson intervals."""
     suffix = "yr30" if "p_breakeven_yr30" in df else "yr" + str(
@@ -264,7 +312,7 @@ def plot_knockout_probabilities(
         title="Common-Random-Number Knockout Scenarios",
     )
     ax.grid(axis="x", linestyle=":", alpha=0.6)
-    _save(fig, out, has_ph, False, cost_scope=cost_scope)
+    _save(fig, out, has_ph, False, cost_scope=cost_scope, basis_notice=basis_notice)
 
 
 def plot_threshold_map(
@@ -274,6 +322,7 @@ def plot_threshold_map(
     y_label: str,
     has_ph: bool,
     cost_scope: str | None = None,
+    basis_notice: str | None = None,
 ) -> None:
     """Plot threshold probabilities and requested probability contours."""
     x_values = np.sort(df["x"].unique())
@@ -285,7 +334,7 @@ def plot_threshold_map(
     ax.clabel(contours, fmt="%.1f", fontsize=8)
     fig.colorbar(image, ax=ax, label="P(sustained break-even by horizon)")
     ax.set(xlabel=x_label, ylabel=y_label, title="Break-Even Threshold Map")
-    _save(fig, out, has_ph, False, cost_scope=cost_scope)
+    _save(fig, out, has_ph, False, cost_scope=cost_scope, basis_notice=basis_notice)
 
 
 def _annotate_horizon_probability(ax: plt.Axes, res: SimulationResults) -> None:

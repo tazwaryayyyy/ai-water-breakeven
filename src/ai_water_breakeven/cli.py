@@ -225,6 +225,7 @@ def cmd_figures(args: argparse.Namespace) -> int:
         r0.has_placeholder,
         r0.is_mixed_basis,
         cost_scope=r0.cost_scope,
+        basis_notice=r0.basis_notice,
     )
     plot_scope_comparison(r0, r1, out / "fig5_scope_comparison")
     print(f"Figures written to {out}")
@@ -268,6 +269,7 @@ def cmd_knockouts(args: argparse.Namespace) -> int:
         out / "fig6_knockouts",
         results["baseline"].has_placeholder,
         cost_scope=results["baseline"].cost_scope,
+        basis_notice=results["baseline"].basis_notice,
     )
     print(f"Knockout outputs written to {out}")
     return 0
@@ -312,6 +314,24 @@ def cmd_threshold(args: argparse.Namespace) -> int:
     by_name = {param.name: param for param in active.values()}
     has_placeholder = any(param.is_placeholder_or_missing for param in active.values())
     cost_scope = "scope 1+2 combined" if region == "global" else None
+
+    gross_d_max = active["D_desal"].high * active["theta_desal"].high
+    gross_sf_max = (
+        active["phi_solar_food"].high
+        * active["A_solar_food"].high
+        * max(0.0, 1.0 - active["r_solar_food"].low)
+    )
+    thresh_notices = []
+    if float(gross_d_max) == 0.0:
+        thresh_notices.append(
+            "desal benefit is identically zero under this parameter set (for example, unset sentinel inputs) - results reflect the remaining pathways only."
+        )
+    if float(gross_sf_max) == 0.0:
+        thresh_notices.append(
+            "solar_food benefit is identically zero under this parameter set (for example, unset sentinel inputs) - results reflect the remaining pathways only."
+        )
+    thresh_notice = "; ".join(thresh_notices) if thresh_notices else None
+
     _write_table(table, out / "threshold_map.csv", has_placeholder)
     plot_threshold_map(
         table,
@@ -320,6 +340,7 @@ def cmd_threshold(args: argparse.Namespace) -> int:
         f"{y_name} ({by_name[y_name].unit})",
         has_placeholder,
         cost_scope=cost_scope,
+        basis_notice=thresh_notice,
     )
     print(f"Threshold map written to {out}")
     return 0

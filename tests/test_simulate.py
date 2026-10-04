@@ -163,3 +163,40 @@ def test_dominance_check_trips_on_wide_parameter_and_not_on_narrow(base_params):
     assert df_wide["dominance_warning"].any()
     tripped = df_wide[df_wide["dominance_warning"]]["parameter"].tolist()
     assert "g2_global" in tripped
+
+
+def test_zero_ceiling_pathway_disclosure(base_params):
+    """A synthetic parameter set with A fixed at 0 has 0 solar_food share and carries basis_notice; with A > 0 it does not."""
+    # Synthetic set with A fixed at 0
+    p_zero = dict(base_params)
+    p_a = p_zero["A_solar_food"]
+    p_zero["A_solar_food"] = Parameter(
+        p_a.name,
+        p_a.description,
+        p_a.unit,
+        p_a.basis,
+        p_a.region,
+        p_a.year,
+        "fixed",
+        0.0,
+        0.0,
+        0.0,
+        p_a.source,
+        p_a.locator,
+        p_a.confidence,
+        p_a.notes,
+    )
+    res_zero = run_simulation(p_zero, t_horizon=20, n_samples=500, seed=42)
+    sm_zero = compute_summary_metrics(res_zero)
+    assert sm_zero["share_solar_food_benefit"] == 0.0
+    assert "basis_notice" in sm_zero
+    assert sm_zero["basis_notice"] is not None
+    assert "solar_food benefit is identically zero" in sm_zero["basis_notice"]
+    assert "results reflect the remaining pathways only" in sm_zero["basis_notice"]
+
+    # Parameter set with A > 0 (withdrawal baseline)
+    res_pos = run_simulation(base_params, t_horizon=20, n_samples=500, seed=42)
+    sm_pos = compute_summary_metrics(res_pos)
+    assert "basis_notice" not in sm_pos or sm_pos.get("basis_notice") is None
+    assert sm_pos["share_solar_food_benefit"] > 0.0
+

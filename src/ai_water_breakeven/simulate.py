@@ -40,6 +40,7 @@ class SimulationResults:
     active_parameters: Dict[str, Parameter]
     has_placeholder: bool
     is_mixed_basis: bool
+    basis_notice: str | None = None
 
 
 def run_simulation(
@@ -123,6 +124,19 @@ def _evaluate_samples(
     cost_scope = "scope 1+2 combined" if scenario_region == "global" else (
         "direct only" if k_switch == 0 else "direct + electricity"
     )
+    gross_d = s["D_desal"] * s["theta_desal"]
+    gross_sf = s["phi_solar_food"] * s["A_solar_food"] * (1.0 - s["r_solar_food"])
+    notices = []
+    if float(np.max(gross_d)) == 0.0:
+        notices.append(
+            "desal benefit is identically zero under this parameter set (for example, unset sentinel inputs) - results reflect the remaining pathways only."
+        )
+    if float(np.max(gross_sf)) == 0.0:
+        notices.append(
+            "solar_food benefit is identically zero under this parameter set (for example, unset sentinel inputs) - results reflect the remaining pathways only."
+        )
+    basis_notice = "; ".join(notices) if notices else None
+
     return SimulationResults(
         t_horizon,
         len(next(iter(raw_samples.values()))),
@@ -144,6 +158,7 @@ def _evaluate_samples(
         active,
         any(p.is_placeholder_or_missing for p in active.values()),
         False,
+        basis_notice,
     )
 
 
@@ -269,6 +284,8 @@ def compute_knockout_table(results: Dict[str, SimulationResults]) -> pd.DataFram
                 ),
             }
         )
+        if results["baseline"].basis_notice:
+            row["basis_notice"] = results["baseline"].basis_notice
         rows.append(row)
     return pd.DataFrame(rows)
 
@@ -350,6 +367,8 @@ def compute_summary_metrics(res: SimulationResults) -> Dict[str, Any]:
     td, tf = float(np.sum(res.desal_benefits)), float(np.sum(res.solar_food_benefits))
     sm["share_desal_benefit"] = td / (td + tf) if (td + tf) > 0 else 0.0
     sm["share_solar_food_benefit"] = tf / (td + tf) if (td + tf) > 0 else 0.0
+    if res.basis_notice:
+        sm["basis_notice"] = res.basis_notice
     return sm
 
 
