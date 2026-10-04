@@ -13,6 +13,8 @@
 - **Parameter Selection Rule**: A simulation run selects only parameters matching its designated region and physical basis, alongside parameters marked `n/a`.
 - **Regional Consistency Rule**: A run configured with a `us` cost set cannot be paired with `global` benefit rows and requires explicit US benefit parameters.
 
+The `region=us` configuration is reserved and not runnable; `reproduce` lists `us/*` as skipped with the missing rows. As context only, not model inputs, LBNL-2001637 reports US data center water use on a consumption basis for 2023 at about 17.4 billion gallons ($6.59 \times 10^7\text{ m}^3$) direct and about 211 billion gallons ($7.99 \times 10^8\text{ m}^3$) through electricity, taken from secondary coverage and to be checked against the LBNL report.
+
 ### Operational Scopes and Global Cost Definition
 - **Scope 1 Water Use**: Scope 1 operational water is defined as on-site data center cooling and facility consumption.
 - **Scope 2 Water Use**: Scope 2 operational water is defined as off-site water consumed or withdrawn in generating purchased electricity for compute facilities.
