@@ -106,6 +106,7 @@ $$N(t) = \sum_{\tau=1}^t \left( \sum_i B_i(\tau) - C(\tau) \right)$$
 3. **Exclusion of Embodied Water**: Scope 3 embodied water consumed during semiconductor manufacturing, server fabrication, and facility construction is excluded.
 4. **Static Macroeconomic Baselines**: Baseline water volumes $A$ and $D$ do not incorporate dynamic climate change, demographic shifts, or dietary transitions.
 5. **Absence of Economic Discounting**: Water balances are evaluated in physical volumetric units ($\text{m}^3$) without financial discounting or capital cost trade-offs.
+6. **Long-Horizon Coverage**: No source covers 2035-2077, which is most of the horizon; growth assumptions across this window reflect scenario assumptions rather than empirical projections.
 
 ---
 
@@ -117,14 +118,14 @@ $$N(t) = \sum_{\tau=1}^t \left( \sum_i B_i(\tau) - C(\tau) \right)$$
 | `W_indirect_global` | $\text{m}^3/\text{yr}$ | withdrawal | global | fixed | 0.0 | 0.0 | 0.0 | Li, Yang, Islam and Ren (2025) | B | Zero by construction; Scope 2 is in direct row. |
 | `W_direct_global_consumption` | $\text{m}^3/\text{yr}$ | consumption | global | uniform | 0.38e9 | 0.49e9 | 0.60e9 | Li, Yang, Islam and Ren (2025) | B | Combined Scope 1+2 global water consumption. |
 | `W_indirect_global_consumption` | $\text{m}^3/\text{yr}$ | consumption | global | fixed | 0.0 | 0.0 | 0.0 | Li, Yang, Islam and Ren (2025) | B | Zero by construction; Scope 2 is in direct row. |
-| `g_global` | dimensionless | n/a | global | triangular | 0.05 | 0.15 | 0.25 | PLACEHOLDER | C | First-phase annual growth rate. |
-| `G_global` | yr | n/a | global | triangular | 5.0 | 10.0 | 15.0 | PLACEHOLDER | C | First-phase growth duration. |
-| `g2_global` | dimensionless | n/a | global | triangular | -0.50 | 0.00 | 0.50 | PLACEHOLDER | C | Second-phase annual growth rate. |
+| `g_global` | dimensionless | n/a | global | triangular | 0.10 | 0.20 | 0.30 | IEA (2025) / LBNL / Xylem | C | First-phase rate; mode is judgment. No source covers 2035-2077. |
+| `G_global` | yr | n/a | global | triangular | 1.0 | 3.0 | 8.0 | IEA (2025) / LBNL / Xylem | C | First-phase duration; mode is judgment. No source covers 2035-2077. |
+| `g2_global` | dimensionless | n/a | global | triangular | -0.02 | 0.02 | 0.05 | IEA (2025) / LBNL / Xylem | C | Second-phase rate; mode is judgment. No source covers 2035-2077. |
 | `W_direct_us` | $\text{gal}/\text{yr}$ | consumption | us | triangular | 1.5e10 | 1.74e10 | 2.0e10 | LBNL (2024) | A | Direct on-site data center water consumption. |
 | `W_indirect_us` | $\text{gal}/\text{yr}$ | consumption | us | triangular | 1.9e11 | 2.11e11 | 2.3e11 | LBNL (2024) | A | Indirect electricity-generation water consumption. |
-| `g_us` | dimensionless | n/a | us | triangular | 0.15 | 0.20 | 0.32 | LBNL (2024) | B | US first-phase annual growth rate. |
-| `G_us` | yr | n/a | us | triangular | 5.0 | 10.0 | 15.0 | PLACEHOLDER | C | US first-phase growth duration. |
-| `g2_us` | dimensionless | n/a | us | triangular | -0.50 | 0.00 | 0.50 | PLACEHOLDER | C | US second-phase annual growth rate. |
+| `g_us` | dimensionless | n/a | us | triangular | 0.15 | 0.20 | 0.32 | LBNL (2024) | B | Reserved: no runnable scenario uses US growth rows. |
+| `G_us` | yr | n/a | us | triangular | 5.0 | 10.0 | 15.0 | PLACEHOLDER | C | Reserved: no runnable scenario uses US growth rows. |
+| `g2_us` | dimensionless | n/a | us | triangular | -0.50 | 0.00 | 0.50 | PLACEHOLDER | C | Reserved: no runnable scenario uses US growth rows. |
 | `p_desal` | dimensionless | n/a | global | uniform | 0.50 | 0.80 | 0.95 | PLACEHOLDER | C | Deployment probability for desalination efficiency. |
 | `alpha_desal` | dimensionless | n/a | global | triangular | 0.05 | 0.15 | 0.30 | PLACEHOLDER | C | Counterfactual attribution share to AI. |
 | `rho_desal` | dimensionless | n/a | global | triangular | 0.00 | 0.10 | 0.30 | PLACEHOLDER | C | Desalination rebound demand fraction. |
