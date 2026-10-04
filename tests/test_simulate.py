@@ -9,6 +9,7 @@ from ai_water_breakeven.params import Parameter, load_parameters
 from ai_water_breakeven.sample import sample_inverse_cdf, sample_parameter_matrix
 from ai_water_breakeven.simulate import (
     compute_conditions_table,
+    compute_sourcing_priority,
     compute_summary_metrics,
     compute_threshold_map,
     run_knockout_scenarios,
@@ -128,3 +129,37 @@ def test_conditions_table_success_count_matches_horizon_be_runs(base_params):
         assert df["n_success"].iloc[0] == expected_success
         assert df["n_failure"].iloc[0] == expected_failure
         assert df["conditions_horizon"].iloc[0] == horizon
+
+
+def test_dominance_check_trips_on_wide_parameter_and_not_on_narrow(base_params):
+    """Dominance warning trips when a parameter has |PRCC| > 0.85 and does not otherwise."""
+    # Calibrated run: no parameter has |PRCC| > 0.85
+    res_cal = run_simulation(base_params, t_horizon=30, n_samples=3000, seed=42)
+    df_cal = compute_sourcing_priority(res_cal)
+    assert "dominance_warning" in df_cal.columns
+    assert not df_cal["dominance_warning"].any()
+
+    # Synthetic run with one artificially wide parameter (g2 spanning [-0.50, 0.50])
+    wide_params = dict(base_params)
+    p_orig = wide_params["g2_global"]
+    wide_params["g2_global"] = Parameter(
+        p_orig.name,
+        p_orig.description,
+        p_orig.unit,
+        p_orig.basis,
+        p_orig.region,
+        p_orig.year,
+        "triangular",
+        low=-0.50,
+        mode=0.00,
+        high=0.50,
+        source=p_orig.source,
+        locator=p_orig.locator,
+        confidence=p_orig.confidence,
+        notes=p_orig.notes,
+    )
+    res_wide = run_simulation(wide_params, t_horizon=30, n_samples=3000, seed=42)
+    df_wide = compute_sourcing_priority(res_wide)
+    assert df_wide["dominance_warning"].any()
+    tripped = df_wide[df_wide["dominance_warning"]]["parameter"].tolist()
+    assert "g2_global" in tripped

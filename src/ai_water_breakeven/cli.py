@@ -176,12 +176,16 @@ def cmd_run(args: argparse.Namespace) -> int:
     _write_table(
         compute_net_balance_by_horizon(res), out / "net_balance_by_horizon.csv", res.has_placeholder
     )
-    _write_table(compute_sourcing_priority(res), out / "sourcing_priority.csv", res.has_placeholder)
+    sourcing_df = compute_sourcing_priority(res)
+    _write_table(sourcing_df, out / "sourcing_priority.csv", res.has_placeholder)
     json.dump(
         _metadata(cfg, Path(args.parameters), Path(args.config), res),
         open(out / "run_metadata.json", "w", encoding="utf-8"),
         indent=2,
     )
+    n_dominant = int(sourcing_df["dominance_warning"].sum()) if "dominance_warning" in sourcing_df else 0
+    if n_dominant > 0:
+        print(f"{n_dominant} parameter(s) have |PRCC| > 0.85 - check sourcing_priority.csv before treating results as more than illustrative.")
     print(f"Run complete. Outputs in {out}")
     return 0
 

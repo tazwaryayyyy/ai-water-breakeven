@@ -448,16 +448,31 @@ def compute_sourcing_priority(results: SimulationResults) -> pd.DataFrame:
         status = "MISSING" if "MISSING" in source_upper else (
             "PLACEHOLDER" if "PLACEHOLDER" in source_upper else "sourced"
         )
+        abs_prcc = abs(row["prcc"])
         rows.append(
             {
                 "parameter": parameter.name,
                 "prcc": row["prcc"],
-                "abs_prcc": abs(row["prcc"]),
+                "abs_prcc": abs_prcc,
                 "status": status,
                 "confidence": parameter.confidence,
                 "source": parameter.source,
                 "rank_notice": "Ranks depend on the current input ranges and are provisional.",
+                "dominance_warning": bool(abs_prcc > 0.85),
             }
+        )
+    if not rows:
+        return pd.DataFrame(
+            columns=[
+                "parameter",
+                "prcc",
+                "abs_prcc",
+                "status",
+                "confidence",
+                "source",
+                "rank_notice",
+                "dominance_warning",
+            ]
         )
     return pd.DataFrame(rows).sort_values("abs_prcc", ascending=False).reset_index(drop=True)
 
