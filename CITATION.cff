@@ -14,3 +14,35 @@ keywords:
   - monte carlo simulation
   - scenario modeling
 license: MIT
+references:
+  - type: article
+    authors:
+      - family-names: "Li"
+        given-names: "Pengfei"
+      - family-names: "Yang"
+        given-names: "Jianyi"
+      - family-names: "Islam"
+        given-names: "Mohammad A."
+      - family-names: "Ren"
+        given-names: "Shaolei"
+    title: "Making AI Less 'Thirsty': Uncovering and Addressing the Secret Water Footprint of AI Models"
+    journal: "Communications of the ACM"
+    volume: 68
+    issue: 7
+    year: 2025
+    start: 54
+    end: 61
+    # TODO: Confirm the CACM DOI on the ACM Digital Library before submission.
+  - type: article
+    authors:
+      - family-names: "Li"
+        given-names: "Pengfei"
+      - family-names: "Yang"
+        given-names: "Jianyi"
+      - family-names: "Islam"
+        given-names: "Mohammad A."
+      - family-names: "Ren"
+        given-names: "Shaolei"
+    title: "Making AI Less 'Thirsty': Uncovering and Addressing the Secret Water Footprint of AI Models"
+    year: 2023
+    url: "https://doi.org/10.48550/arXiv.2304.03271"
