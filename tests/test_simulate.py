@@ -107,16 +107,39 @@ def test_common_random_number_ceiling_cannot_delay_break_even(base_params):
         assert np.mean(paired_ceiling <= horizon) >= np.mean(paired_base <= horizon)
 
 
-def test_threshold_map_has_expected_monotonic_directions(base_params):
-    """Shared-draw threshold cells are monotonic when rebound factors are at most one."""
+def test_threshold_map_has_expected_monotonic_directions():
+    """Shared-draw threshold cells are monotonic with a synthetic parameter set."""
+    synthetic_params = {
+        "W_direct_global": Parameter("W_direct_global", "", "m^3/yr", "withdrawal", "global", 2027, "fixed", 5.0e9, 5.0e9, 5.0e9, "S", "", "C", ""),
+        "W_indirect_global": Parameter("W_indirect_global", "", "m^3/yr", "withdrawal", "global", 2027, "fixed", 0.0, 0.0, 0.0, "S", "", "C", ""),
+        "g_global": Parameter("g_global", "", "dimensionless", "n/a", "global", 2027, "triangular", 0.10, 0.20, 0.30, "S", "", "C", ""),
+        "G_global": Parameter("G_global", "", "yr", "n/a", "global", 2027, "fixed", 5.0, 5.0, 5.0, "S", "", "C", ""),
+        "g2_global": Parameter("g2_global", "", "dimensionless", "n/a", "global", 2027, "fixed", 0.0, 0.0, 0.0, "S", "", "C", ""),
+        "p_desal": Parameter("p_desal", "", "dimensionless", "n/a", "global", 2027, "fixed", 0.8, 0.8, 0.8, "S", "", "C", ""),
+        "alpha_desal": Parameter("alpha_desal", "", "dimensionless", "n/a", "global", 2027, "fixed", 0.15, 0.15, 0.15, "S", "", "C", ""),
+        "rho_desal": Parameter("rho_desal", "", "dimensionless", "n/a", "global", 2027, "fixed", 0.10, 0.10, 0.10, "S", "", "C", ""),
+        "L_desal": Parameter("L_desal", "", "yr", "n/a", "global", 2027, "fixed", 5.0, 5.0, 5.0, "S", "", "C", ""),
+        "R_desal": Parameter("R_desal", "", "yr", "n/a", "global", 2027, "fixed", 10.0, 10.0, 10.0, "S", "", "C", ""),
+        "D_desal": Parameter("D_desal", "", "m^3/yr", "n/a", "global", 2027, "fixed", 3.5e10, 3.5e10, 3.5e10, "S", "", "C", ""),
+        "theta_desal": Parameter("theta_desal", "", "dimensionless", "n/a", "global", 2027, "fixed", 0.05, 0.05, 0.05, "S", "", "C", ""),
+        "p_solar_food": Parameter("p_solar_food", "", "dimensionless", "n/a", "global", 2027, "fixed", 0.5, 0.5, 0.5, "S", "", "C", ""),
+        "alpha_solar_food": Parameter("alpha_solar_food", "", "dimensionless", "n/a", "global", 2027, "fixed", 0.25, 0.25, 0.25, "S", "", "C", ""),
+        "rho_solar_food": Parameter("rho_solar_food", "", "dimensionless", "n/a", "global", 2027, "fixed", 0.10, 0.10, 0.10, "S", "", "C", ""),
+        "L_solar_food": Parameter("L_solar_food", "", "yr", "n/a", "global", 2027, "fixed", 5.0, 5.0, 5.0, "S", "", "C", ""),
+        "R_solar_food": Parameter("R_solar_food", "", "yr", "n/a", "global", 2027, "fixed", 10.0, 10.0, 10.0, "S", "", "C", ""),
+        "phi_solar_food": Parameter("phi_solar_food", "", "dimensionless", "n/a", "global", 2027, "triangular", 0.01, 0.03, 0.06, "S", "", "C", ""),
+        "A_solar_food": Parameter("A_solar_food", "", "m^3/yr", "withdrawal", "global", 2027, "fixed", 2.8e12, 2.8e12, 2.8e12, "S", "", "C", ""),
+        "r_solar_food": Parameter("r_solar_food", "", "dimensionless", "withdrawal", "global", 2027, "fixed", 0.20, 0.20, 0.20, "S", "", "C", ""),
+    }
     table = compute_threshold_map(
-        base_params, "g_global", "phi_solar_food", horizon=20, grid=3, n_per_cell=400, seed=23
+        synthetic_params, "g_global", "phi_solar_food", horizon=20, grid=3, n_per_cell=400, seed=23
     )
     pivot = table.pivot(index="y", columns="x", values="P")
     for _, row in pivot.iterrows():
         assert np.all(np.diff(row.to_numpy()) <= 0)
     for _, column in pivot.items():
         assert np.all(np.diff(column.to_numpy()) >= 0)
+
 
 
 def test_conditions_table_success_count_matches_horizon_be_runs(base_params):

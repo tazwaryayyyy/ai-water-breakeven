@@ -179,3 +179,26 @@ def test_pathway_benefits_never_exceed_ceilings_and_cost_ordering():
     cost_k0 = calc_cost(w_dir, w_ind, 0.0, g1, G1, g2, t)
     cost_k1 = calc_cost(w_dir, w_ind, 1.0, g1, G1, g2, t)
     assert np.all(cost_k0 <= cost_k1)
+
+
+def test_g2_sustained_growth_bound():
+    """g2 = 0.05 sustained for 45 years multiplies cost by less than 10x."""
+    g2 = 0.05
+    years = 45
+    factor = (1.0 + g2) ** years
+    assert factor < 10.0
+    assert np.isclose(factor, 8.9850078, rtol=1e-5)
+
+    # Directly verify in calc_cost over 45 years post-transition
+    t = np.array([[years]])
+    cost = calc_cost(
+        np.array([100.0]),
+        np.array([0.0]),
+        0.0,
+        np.array([0.0]),
+        np.array([0.0]),
+        np.array([g2]),
+        t,
+    )
+    assert float(cost[0, 0]) / 100.0 < 10.0
+
