@@ -2,7 +2,7 @@
 
 Monte Carlo simulation model evaluating whether counterfactual water savings from AI-enabled technologies (desalination optimization, agricultural displacement) can offset the operational water consumption and withdrawal of global AI compute infrastructure.
 
-> Status: most inputs are PLACEHOLDER or MISSING in data/parameters.csv. Outputs are illustrative, not findings. Do not cite them. Only the global baseline (Li et al. 2025) is sourced; g_global, G_global and g2_global are assumptions informed by IEA, LBNL and Xylem/GWI, not measured rates.
+> Status: most inputs are PLACEHOLDER or MISSING in data/parameters.csv. Outputs are illustrative, not findings. Do not cite them. Sourced: the global AI water baseline (Li et al. 2025) and the agricultural blue-water baseline A on the consumption basis. Assumptions informed by sources, not measured rates: g_global, G_global, g2_global, phi_solar_food and r_solar_food_consumption. Deployment probabilities, attribution shares, rebound, lags and all desalination inputs are placeholders.
 
 ## Quickstart
 

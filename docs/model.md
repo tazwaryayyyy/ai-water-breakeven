@@ -153,8 +153,8 @@ Results are stated as "in X% of simulated scenarios under these inputs", never a
 | `rho_solar_food` | dimensionless | n/a | global | triangular | 0.00 | 0.10 | 0.40 | PLACEHOLDER | C | Solar food rebound demand fraction. |
 | `L_solar_food` | yr | n/a | global | triangular | 5.0 | 10.0 | 15.0 | PLACEHOLDER | C | Solar food deployment lag. |
 | `R_solar_food` | yr | n/a | global | triangular | 5.0 | 10.0 | 20.0 | PLACEHOLDER | C | Solar food ramp-up duration. |
-| `phi_solar_food` | dimensionless | n/a | global | triangular | 0.005 | 0.02 | 0.08 | PLACEHOLDER | C | Fractional agricultural displacement share. |
+| `phi_solar_food` | dimensionless | n/a | global | triangular | 0 | 0.06 | 0.13 | Pikaar et al. (2018) | C | Assumption; covers all microbial-protein routes, not only solar-driven ones; cropland share is a proxy for blue-water share and displaced crops are largely rain-fed, so this is likely generous. |
 | `A_solar_food` | $\text{m}^3/\text{yr}$ | withdrawal | global | triangular | 2.0e12 | 2.8e12 | 3.5e12 | MISSING | C | Baseline agricultural freshwater withdrawal. |
 | `r_solar_food` | dimensionless | withdrawal | global | triangular | 0.05 | 0.20 | 0.50 | MISSING | C | Relative water intensity (withdrawal basis). |
-| `A_solar_food_consumption` | $\text{m}^3/\text{yr}$ | consumption | global | fixed | 0.0 | 0.0 | 0.0 | PLACEHOLDER | C | Sentinel agricultural consumption volume. |
-| `r_solar_food_consumption` | dimensionless | consumption | global | fixed | 1.0 | 1.0 | 1.0 | PLACEHOLDER | C | Sentinel relative water intensity (consumption). |
+| `A_solar_food_consumption` | $\text{m}^3/\text{yr}$ | consumption | global | triangular | 0.89e12 | 1.08e12 | 1.23e12 | Chukalla et al. (2025) / Mekonnen & Hoekstra (2011) | B | Crop production only; held constant over the horizon; read from secondary summaries, check against the papers. |
+| `r_solar_food_consumption` | dimensionless | consumption | global | triangular | 0.002 | 0.01 | 0.10 | Sillman et al. (2020) | C | Assumption informed by best-case life-cycle blue water of 1-3.8 kg per kg protein against a corrected soybean comparator of 630 L per kg protein; the corrected table was not checked; the mode is a judgment and the upper bound is deliberately generous. |
