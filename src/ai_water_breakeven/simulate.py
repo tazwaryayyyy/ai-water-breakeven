@@ -464,9 +464,14 @@ def compute_sourcing_priority(results: SimulationResults) -> pd.DataFrame:
         if parameter is None:
             continue
         source_upper = parameter.source.upper()
-        status = "MISSING" if "MISSING" in source_upper else (
-            "PLACEHOLDER" if "PLACEHOLDER" in source_upper else "sourced"
-        )
+        if "MISSING" in source_upper:
+            status = "MISSING"
+        elif "PLACEHOLDER" in source_upper:
+            status = "PLACEHOLDER"
+        elif parameter.confidence.strip().upper() == "C" and bool(parameter.source.strip()):
+            status = "assumption"
+        else:
+            status = "sourced"
         abs_prcc = abs(row["prcc"])
         rows.append(
             {

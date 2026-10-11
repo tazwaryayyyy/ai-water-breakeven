@@ -8,6 +8,7 @@ import pytest
 from ai_water_breakeven.params import Parameter, load_parameters
 from ai_water_breakeven.sample import sample_inverse_cdf, sample_parameter_matrix
 from ai_water_breakeven.simulate import (
+    SimulationResults,
     compute_conditions_table,
     compute_sourcing_priority,
     compute_summary_metrics,
@@ -222,4 +223,49 @@ def test_zero_ceiling_pathway_disclosure(base_params):
     sm_pos = compute_summary_metrics(res_pos)
     assert "basis_notice" not in sm_pos or sm_pos.get("basis_notice") is None
     assert sm_pos["share_solar_food_benefit"] > 0.0
+
+
+def test_sourcing_priority_status_synthetic_rows():
+    """compute_sourcing_priority sets status to assumption for confidence C with real source, sourced for A/B, and preserves PLACEHOLDER/MISSING."""
+    n = 100
+    rng = np.random.default_rng(42)
+    params = {
+        "p_c_sourced": Parameter("p_c_sourced", "", "", "withdrawal", "global", 2024, "uniform", 0.1, 0.2, 0.3, "Empirical Report 2024", "Table 1", "C", ""),
+        "p_a_sourced": Parameter("p_a_sourced", "", "", "withdrawal", "global", 2024, "uniform", 0.1, 0.2, 0.3, "Peer Reviewed Study", "Table 2", "A", ""),
+        "p_b_sourced": Parameter("p_b_sourced", "", "", "withdrawal", "global", 2024, "uniform", 0.1, 0.2, 0.3, "Agency Report", "p. 5", "B", ""),
+        "p_placeholder": Parameter("p_placeholder", "", "", "withdrawal", "global", 2024, "uniform", 0.1, 0.2, 0.3, "PLACEHOLDER", "", "C", ""),
+        "p_missing": Parameter("p_missing", "", "", "withdrawal", "global", 2024, "uniform", 0.1, 0.2, 0.3, "MISSING", "", "C", ""),
+    }
+    sampled = {k: rng.uniform(0.1, 0.3, n) for k in params}
+    y = rng.normal(0, 1, n)
+    results = SimulationResults(
+        t_horizon=10,
+        n_samples=n,
+        cost_basis="global_withdrawal",
+        region="global",
+        basis="withdrawal",
+        cost_scope="direct",
+        k_switch=0.0,
+        time_steps=np.arange(1, 11),
+        net_balance_trajectories=np.zeros((n, 10)),
+        be_years=np.full(n, np.nan),
+        crossover_years=np.full(n, np.nan),
+        final_net_balances=y,
+        desal_benefits=np.zeros((n, 10)),
+        solar_food_benefits=np.zeros((n, 10)),
+        cost_trajectories=np.zeros((n, 10)),
+        cost_at_zero=np.ones(n),
+        sampled_params=sampled,
+        active_parameters=params,
+        has_placeholder=True,
+        is_mixed_basis=False,
+    )
+    df = compute_sourcing_priority(results)
+    status_map = dict(zip(df["parameter"], df["status"]))
+    assert status_map["p_c_sourced"] == "assumption"
+    assert status_map["p_a_sourced"] == "sourced"
+    assert status_map["p_b_sourced"] == "sourced"
+    assert status_map["p_placeholder"] == "PLACEHOLDER"
+    assert status_map["p_missing"] == "MISSING"
+
 

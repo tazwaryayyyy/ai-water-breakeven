@@ -34,7 +34,7 @@ where:
 - $W_{\text{direct}}$: Baseline direct annual water volume (m³/yr).
 - $W_{\text{indirect}}$: Baseline indirect annual electricity water volume (m³/yr).
 - $k \in [0, 1]$: Indirect electricity water switch (active only when direct and indirect are separated).
-- $g_1$: Phase 1 annual compound growth rate (calibrated to near-term AI infrastructure expansion).
+- $g_1$: Phase 1 annual compound growth rate (informed by near-term AI infrastructure expansion).
 - $G_1$: Duration of Phase 1 in years.
 - $g_2$: Phase 2 long-term annual growth rate (reflecting saturation or post-transition efficiency gains).
 
@@ -105,6 +105,12 @@ A 2D threshold grid spans the 5th to 95th percentiles of two selected continuous
 
 ---
 
+## Reading Results
+
+Results are stated as "in X% of simulated scenarios under these inputs", never as real-world probabilities; "never" means no sustained break-even within T.
+
+---
+
 ## Boundary Conditions and Methodological Limitations
 
 1. **Spatial Aggregation:** Volumetric balances are calculated at global scale. Water is physically non-fungible across regional watersheds; savings in an agricultural basin cannot offset cooling extraction from a stressed urban aquifer thousands of miles away.
@@ -113,6 +119,9 @@ A 2D threshold grid spans the 5th to 95th percentiles of two selected continuous
 4. **Long-Horizon Projection Gaps:** Empirical data center power and water projections extend through 2030–2035 (IEA, LBNL). Growth assumptions between 2035 and 2077 reflect scenario assumptions rather than empirical forecasts.
 5. **Static Macroeconomic Baselines:** Desalination baseline $D$ and agricultural baseline $A$ are held constant over time, without dynamic feedback from climate change, population growth, or dietary shifts.
 6. **Interpretive Boundary:** All outputs reflect conditional outcomes under exploratory input distributions. They do not constitute deterministic forecasts of real-world water balances.
+7. **No Discounting:** No discounting is applied.
+8. **Independent Sampling:** Inputs are sampled independently.
+9. **Sentinel Gross Benefits:** A basis_notice flags any pathway whose sampled gross benefit is identically zero (today the solar_food sentinels under basis=consumption).
 
 ---
 

@@ -183,9 +183,17 @@ def cmd_run(args: argparse.Namespace) -> int:
         open(out / "run_metadata.json", "w", encoding="utf-8"),
         indent=2,
     )
-    n_dominant = int(sourcing_df["dominance_warning"].sum()) if "dominance_warning" in sourcing_df else 0
+    dominant_params = (
+        sourcing_df.loc[sourcing_df["dominance_warning"], "parameter"].tolist()
+        if "dominance_warning" in sourcing_df
+        else []
+    )
+    n_dominant = len(dominant_params)
     if n_dominant > 0:
-        print(f"{n_dominant} parameter(s) have |PRCC| > 0.85 - check sourcing_priority.csv before treating results as more than illustrative.")
+        names_str = ", ".join(dominant_params)
+        print(
+            f"{n_dominant} parameter(s) have |PRCC| > 0.85 ({names_str}) - check sourcing_priority.csv before treating results as more than illustrative."
+        )
     print(f"Run complete. Outputs in {out}")
     return 0
 

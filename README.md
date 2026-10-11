@@ -2,7 +2,7 @@
 
 Monte Carlo simulation model evaluating whether counterfactual water savings from AI-enabled technologies (desalination optimization, agricultural displacement) can offset the operational water consumption and withdrawal of global AI compute infrastructure.
 
-> **Scenario Status Notice:** Operational compute water baselines and near-term growth rates are calibrated to empirical literature (Li et al., 2025; IEA, 2025; LBNL-2001637). Long-horizon growth (2035–2077) and technology benefit pathways rely on exploratory distributions flagged as `PLACEHOLDER` or `MISSING` in `data/parameters.csv`. All simulation runs using unverified inputs automatically attach non-publication disclaimers to generated figures and summary tables.
+> Status: most inputs are PLACEHOLDER or MISSING in data/parameters.csv. Outputs are illustrative, not findings. Do not cite them. Only the global baseline (Li et al. 2025) is sourced; g_global, G_global and g2_global are assumptions informed by IEA, LBNL and Xylem/GWI, not measured rates.
 
 ## Quickstart
 
@@ -40,25 +40,7 @@ To reproduce all runnable scenarios, figures, knockouts, and threshold maps:
 ai-water-breakeven reproduce --out-dir results
 ```
 
-### Calibrated Baseline Results
-
-Summary for baseline configuration (`region=global`, `basis=withdrawal`, $N=100{,}000$, $T=50$):
-
-| Metric | Baseline Value | 95% Wilson CI |
-| :--- | :--- | :--- |
-| Break-even probability by Year 10 | 0.002% | [0.001%, 0.007%] |
-| Break-even probability by Year 20 | 1.92% | [1.83%, 2.00%] |
-| Break-even probability by Year 30 | 6.74% | [6.58%, 6.89%] |
-| Break-even probability by Year 50 | 9.59% | [9.41%, 9.78%] |
-| Probability of never breaking even | 90.41% | [90.22%, 90.59%] |
-| Median break-even year (successful runs) | 26.0 yr | — |
-| Net balance $N(T)$, 5th percentile | $-1.65 \times 10^{12}\text{ m}^3$ | — |
-| Net balance $N(T)$, 50th percentile (median) | $-6.67 \times 10^{11}\text{ m}^3$ | — |
-| Net balance $N(T)$, 95th percentile | $+2.48 \times 10^{11}\text{ m}^3$ | — |
-| Desalination share of benefits | 4.54% | — |
-| Solar food share of benefits | 95.46% | — |
-
-Under calibrated growth rates, sustained break-even occurs in ~9.6% of sampled trajectories by year 50. Water balance outcomes are heavily dominated by agricultural displacement potential rather than desalination efficiency.
+For illustrative simulation outputs and parameter sensitivity rankings, see `summary.json` and `sourcing_priority.csv`.
 
 ## Model Formulation
 
@@ -82,7 +64,7 @@ $$C(t) = (W_{\text{direct}} + k \cdot W_{\text{indirect}}) \cdot (1 + g_1)^{\min
 
 - $W_{\text{direct}}$: Direct operational water volume (m³/yr). For global scenarios, direct rows represent combined Scope 1 (on-site cooling) and Scope 2 (grid electricity) from Li et al. (2025).
 - $k \in [0, 1]$: Scope switch for indirect electricity water (applies to US scenarios with separated accounting; $W_{\text{indirect}} = 0$ for global).
-- $g_1 \sim \text{Triangular}(0.10, 0.20, 0.30)$: Phase 1 annual growth rate (calibrated to IEA 2025 and data center power projections).
+- $g_1 \sim \text{Triangular}(0.10, 0.20, 0.30)$: Phase 1 annual growth rate (informed by IEA 2025 and data center power projections).
 - $G_1 \sim \text{Triangular}(1.0, 3.0, 8.0)$: Phase 1 duration in years.
 - $g_2 \sim \text{Triangular}(-0.02, 0.02, 0.05)$: Phase 2 long-term annual growth rate.
 
@@ -145,6 +127,9 @@ $$B_i(t) = s_i \cdot \alpha_i \cdot \text{Gross}_i \cdot \text{ramp}_i(t) \cdot 
 - **Scope 3 Excluded:** Embodied water from semiconductor manufacturing, hardware supply chains, and facility construction is omitted.
 - **Post-2035 Uncertainty:** Growth trajectories past 2035 have no empirical backing and serve as exploratory scenario bounds.
 - **Static Baselines:** Global agricultural water demand ($A$) and desalination capacity ($D$) are held static without dynamic climate or demographic feedback.
+- **Independent Sampling:** Inputs are sampled independently (no correlation structure).
+- **No Discounting:** No discounting is applied.
+- **Attribution Shares:** Attribution shares (alpha) are modeling assumptions, not measurements.
 
 ## Citation
 
