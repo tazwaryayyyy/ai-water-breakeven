@@ -1,114 +1,118 @@
 # Model Specification and Methodological Basis
 
-## Definitions
+## Accounting Framework
 
-### Water Withdrawal and Water Consumption
-- **Water Withdrawal**: Water withdrawal is defined as the total volume of freshwater extracted from surface or groundwater sources for operational use.
-- **Water Consumption**: Water consumption is defined as the portion of withdrawn water evaporated, transpired, incorporated into products, or otherwise removed from the immediate aquatic ecosystem.
-- **Cross-Basis Separation**: Mixing withdrawal metrics and consumption metrics within a single scenario without an explicit hydrological accounting bridge constitutes a physical category error.
+### Water Withdrawal vs. Water Consumption
+Water accounting in this model maintains a strict separation between withdrawal and consumption:
+- **Freshwater Withdrawal:** Total volume of freshwater extracted from surface or groundwater sources for operational cooling or industrial processing.
+- **Freshwater Consumption:** The subset of withdrawn water evaporated, transpired, incorporated into products, or otherwise removed from the local hydrological basin.
 
-### Scenario Dimensions: Region and Physical Basis
-- **Region Dimension**: The model accepts `global` or `us` as independent scenario regions.
-- **Physical Basis Dimension**: The model accepts `withdrawal` or `consumption` as independent physical bases.
-- **Parameter Selection Rule**: A simulation run selects only parameters matching its designated region and physical basis, alongside parameters marked `n/a`.
-- **Regional Consistency Rule**: A run configured with a `us` cost set cannot be paired with `global` benefit rows and requires explicit US benefit parameters.
+Because the ratio of consumption to withdrawal varies substantially across cooling technologies (e.g., evaporative cooling towers consume 70–90% of withdrawn water, whereas once-through systems consume <5%), mixing withdrawal and consumption within a single scenario without an explicit hydrological conversion bridge represents a physical accounting error. Scenarios must evaluate either withdrawal or consumption across both costs and benefits.
 
-The `region=us` configuration is reserved and not runnable; `reproduce` lists `us/*` as skipped with the missing rows. As context only, not model inputs, LBNL-2001637 reports US data center water use on a consumption basis for 2023 at about 17.4 billion gallons ($6.59 \times 10^7\text{ m}^3$) direct and about 211 billion gallons ($7.99 \times 10^8\text{ m}^3$) through electricity, taken from secondary coverage and to be checked against the LBNL report.
+### Operational Scopes
+Data center water footprints encompass multiple operational tiers:
+- **Scope 1 (Direct):** On-site water consumed or withdrawn for facility cooling, humidification, and facility operations.
+- **Scope 2 (Indirect):** Off-site water consumed or withdrawn at power plants to generate the electricity supplied to compute infrastructure.
+- **Scope 3 (Embodied):** Water used in upstream semiconductor fabrication, server manufacturing, and data center construction (currently excluded from this model).
 
-### Operational Scopes and Global Cost Definition
-- **Scope 1 Water Use**: Scope 1 operational water is defined as on-site data center cooling and facility consumption.
-- **Scope 2 Water Use**: Scope 2 operational water is defined as off-site water consumed or withdrawn in generating purchased electricity for compute facilities.
-- **Global Scope Formulation**: Global AI cost parameters are defined as Scope 1 and Scope 2 combined, derived from Li et al. (2025).
-- **Indirect Global Component**: The parameter `W_indirect_global` is defined as zero by construction because Scope 2 electricity water is already incorporated in `W_direct_global`.
-- **Scope Switch ($k$)**: The switch parameter $k \in [0, 1]$ represents the fraction of indirect electricity water included and applies only to US scenarios where direct and indirect rows are separately reported.
+In the global scenario configuration, baseline values from Li et al. (2025) combine Scope 1 and Scope 2 operational water into a single combined direct parameter (`W_direct_global`), setting `W_indirect_global = 0`. For US accounting, direct and indirect rows are separated using empirical benchmarks from LBNL-2001637, with the parameter $k \in [0, 1]$ acting as a toggle for indirect electricity water inclusion.
 
-### Sensitivity and Evaluation Concepts
-- **Partial Rank Correlation Coefficient (PRCC)**: PRCC is defined as a partial correlation between the rank-transformed input parameter and the rank-transformed final net balance $N(T)$, controlling for linear effects among ranks of all other sampled parameters.
-- **PRCC Non-Equivalence to Variance Explained**: PRCC is a rank association metric and is not a measure of variance explained ($R^2$).
-- **Provisional Rank Status**: PRCC rankings depend directly on specified input intervals and distributions and remain provisional while inputs are marked `PLACEHOLDER` or `MISSING`.
-- **Common-Random-Number Knockouts**: Knockout analysis is defined as the deterministic override of specific parameter subsets across identical Latin-hypercube Monte Carlo draws to isolate structural drivers without sampling variance.
-- **Break-Even Threshold Map**: A threshold map is defined as a two-dimensional grid spanning the 5th to 95th percentiles of two chosen parameters, where sustained break-even probability is computed per cell over shared base draws of all remaining parameters.
+### Regional Scopes and Boundary Consistency
+- **`region = "global"` (Runnable):** Evaluates combined global Scope 1+2 compute footprints against global desalination capacity and agricultural displacement potential.
+- **`region = "us"` (Reserved / Non-runnable):** US data center water parameters are recorded in `data/parameters.csv` for reference (17.4 billion gallons direct, 211 billion gallons indirect electricity consumption for 2023, based on LBNL-2001637). However, benefit pathways are not parameterized at the US scale. Pairing US costs with global benefits produces an invalid comparison and is blocked during parameter validation.
 
 ---
 
 ## Governing Equations
 
-### Two-Phase Cost Growth
-The annual operational water requirement of AI at year $t \in [1, T]$ is governed by:
+### Two-Phase Operational Cost Trajectory
+Annual operational water demand $C(t)$ across years $t \in [1, T]$ is governed by a two-phase compounding growth function:
 
 $$C(t) = (W_{\text{direct}} + k \cdot W_{\text{indirect}}) \cdot (1 + g_1)^{\min(t, G_1)} \cdot (1 + g_2)^{\max(t - G_1, 0)}$$
 
 where:
-- $W_{\text{direct}}$ is baseline direct annual water volume ($\text{m}^3/\text{yr}$ or $\text{gal}/\text{yr}$ converted to $\text{m}^3/\text{yr}$).
-- $W_{\text{indirect}}$ is baseline indirect annual electricity water volume ($\text{m}^3/\text{yr}$ or $\text{gal}/\text{yr}$ converted to $\text{m}^3/\text{yr}$).
-- $k \in [0, 1]$ is the indirect electricity water accounting switch.
-- $g_1 > -1$ is the first-phase annual growth rate.
-- $G_1 \ge 0$ is the duration of the first growth phase in years.
-- $g_2 > -1$ is the second-phase annual growth rate, representing post-transition expansion or technological efficiency gains.
+- $W_{\text{direct}}$: Baseline direct annual water volume (m³/yr).
+- $W_{\text{indirect}}$: Baseline indirect annual electricity water volume (m³/yr).
+- $k \in [0, 1]$: Indirect electricity water switch (active only when direct and indirect are separated).
+- $g_1$: Phase 1 annual compound growth rate (calibrated to near-term AI infrastructure expansion).
+- $G_1$: Duration of Phase 1 in years.
+- $g_2$: Phase 2 long-term annual growth rate (reflecting saturation or post-transition efficiency gains).
 
 ### Technology Deployment and Ramp
-For each benefit pathway $i$:
+For each potential benefit pathway $i \in \{\text{desal}, \text{solar\_food}\}$:
 
 $$s_i \sim \text{Bernoulli}(p_i)$$
 
 $$\text{ramp}_i(t) = \begin{cases} 1[t > L_i] & \text{if } R_i = 0 \\ \operatorname{clip}\left(\frac{t - L_i}{R_i}, 0, 1\right) & \text{if } R_i > 0 \end{cases}$$
 
-where $p_i \in [0, 1]$ is deployment probability, $L_i \ge 0$ is adoption lag in years, and $R_i \ge 0$ is ramp-up duration in years.
+where $p_i$ is deployment probability, $L_i$ is adoption lag in years, and $R_i$ is ramp-up duration in years.
 
 ### Net Pathway Benefit
-The annual net attributable benefit of pathway $i$ at year $t$ is:
+The net annual water savings credited to AI from pathway $i$ at year $t$ is:
 
 $$B_i(t) = s_i \cdot \alpha_i \cdot \text{Gross}_i \cdot \text{ramp}_i(t) \cdot (1 - \rho_i)$$
 
-where $\alpha_i \in [0, 1]$ is the AI attribution share, and $\rho_i \ge 0$ is the rebound effect fraction.
+where:
+- $\alpha_i \in [0, 1]$: Fractional attribution share credited to AI innovations.
+- $\rho_i \ge 0$: Rebound effect factor (additional water consumption induced by lower technology costs or efficiency gains).
 
-### Pathway Gross Formulations
-1. **Solar Food / Electro-Agriculture**:
-   $$\text{Gross}_{\text{solar\_food}} = \phi \cdot A \cdot (1 - r)$$
-   where $\phi \in [0, 1]$ is the agricultural displacement fraction, $A \ge 0$ is global baseline agricultural blue-water volume, and $r \in [0, 1]$ is the relative water intensity of synthesized food.
-2. **Desalination Expansion**:
+### Gross Pathway Potentials
+1. **Desalination Capacity & Efficiency Gains:**
    $$\text{Gross}_{\text{desal}} = D \cdot \theta$$
-   where $D \ge 0$ is baseline global desalination output volume, and $\theta \in [0, 1]$ is the fractional efficiency and capacity increase attributable to AI.
+   where $D$ is baseline global desalination production volume (m³/yr), and $\theta$ is fractional efficiency/capacity enhancement enabled by AI process control.
 
-### Cumulative Balance and Break-Even Metrics
+2. **Electro-Agriculture / Solar Food Synthesis:**
+   $$\text{Gross}_{\text{solar\_food}} = \phi \cdot A \cdot (1 - r)$$
+   where $A$ is global agricultural freshwater footprint (m³/yr), $\phi$ is the fraction of conventional agriculture displaced by synthetic production, and $r$ is the relative water intensity of synthetic alternatives compared to conventional crops.
+
+### Cumulative Balance and Break-Even Criteria
 The cumulative net water balance from year 1 to year $t$ is:
 
 $$N(t) = \sum_{\tau=1}^t \left( \sum_i B_i(\tau) - C(\tau) \right)$$
 
-- **Sustained Break-Even Year ($t^*$)**: The minimum year $t^* \in [1, T]$ such that $N(\tau) \ge 0$ for all $\tau \in [t^*, T]$.
-- **Annual Crossover Year**: The earliest year $t \in [1, T]$ where annual benefits equal or exceed annual costs: $\sum_i B_i(t) \ge C(t)$.
-- **Horizon Net Balance**: The cumulative water balance evaluated at the final simulation horizon: $N(T)$.
+- **Sustained Break-Even Year ($t^*$):** The earliest year such that cumulative balance remains positive for all subsequent years through horizon $T$:
+  $$t^* = \min \{ t \in [1, T] : N(\tau) \ge 0 \quad \forall \tau \in [t, T] \}$$
+- **Annual Crossover Year:** The earliest individual year where annual benefit meets or exceeds annual cost:
+  $$t_{\text{cross}} = \min \left\{ t \in [1, T] : \sum_i B_i(t) \ge C(t) \right\}$$
+- **Horizon Net Balance ($N(T)$):** Cumulative freshwater surplus or deficit at the terminal simulation year $T$.
 
 ---
 
-## Assumptions
+## Sensitivity and Scenario Methods
 
-1. **Parameter Sampling Independence**: All sampled parameters are assumed to follow independent marginal distributions without copulas or correlation matrices.
-2. **Attribution Invariance**: AI attribution share $\alpha_i$ is assumed constant over time for each pathway.
-3. **Constant Baseline Resource Demands**: Global agricultural blue-water volume $A$ and desalination production $D$ are assumed constant across the simulation horizon.
-4. **Agricultural Water Scope**: Baseline agricultural volume $A$ is assumed to represent irrigation (blue) water on the specified physical basis.
-5. **Desalination Supply Accounting**: Desalination is assumed to provide new water supply rather than demand reduction, acting as a volumetric supply credit under consumption accounting.
-6. **Two-Phase Regime Shift**: Data center water use is assumed to experience compound growth at rate $g_1$ for $G_1$ years, shifting abruptly to compound rate $g_2$ thereafter.
-7. **Knockout Invariance**: Common-random-number knockout scenarios assume that individual parameter overrides do not alter the realized marginal draws of non-overridden parameters.
+### Latin Hypercube Sampling (LHS)
+Parameters with defined uncertainty ranges are sampled via Latin Hypercube Sampling across specified distributions (uniform, triangular, or fixed). Marginal distributions are sampled independently.
+
+### Partial Rank Correlation Coefficients (PRCC)
+Sensitivity rankings evaluate monotonic non-linear relationships between sampled input parameters and cumulative balance $N(T)$ using PRCC:
+- PRCC measures the correlation between rank-transformed inputs and rank-transformed outputs after partialling out rank correlations with all other inputs.
+- PRCC is an index of monotonic sensitivity, not a decomposition of variance explained ($R^2$).
+- **Dominance Safeguard:** If any parameter exhibits $|PRCC| > 0.85$, it is flagged with a `dominance_warning` in `sourcing_priority.csv` and triggers a console warning during simulation execution.
+
+### Common-Random-Number (CRN) Knockouts
+To isolate structural drivers without Monte Carlo sampling variance, knockout scenarios reuse identical pseudo-random draws from the baseline run while selectively overriding target parameter subsets:
+- `alpha_1`: Attribution $\alpha_i = 1.0$ across all pathways.
+- `success_1`: Success probability $p_i = 1.0$ across all pathways.
+- `no_rebound`: Rebound factors $\rho_i = 0$.
+- `no_delay`: Adoption lags $L_i = 0$ and ramps $R_i = 0$.
+- `flat_cost`: Cost growth rates $g_1 = 0, g_2 = 0$.
+- `desal_only`: Only desalination pathway active.
+- `solar_food_only`: Only agricultural displacement pathway active.
+- `ceiling`: Full deployment, 100% attribution, zero rebound, zero delay, flat cost.
+
+### Break-Even Threshold Surface
+A 2D threshold grid spans the 5th to 95th percentiles of two selected continuous parameters across $G \times G$ cells. For each cell, the break-even probability is computed over shared base draws of all remaining parameters, identifying critical non-linear feasibility boundaries.
 
 ---
 
-## Reading Results
+## Boundary Conditions and Methodological Limitations
 
-- All outputs are conditional scenario outcomes under exploratory input distributions.
-- Statements describing model outputs must be phrased strictly as "in $X\%$ of simulated scenarios under these inputs", never as empirical forecasts or real-world probabilities.
-- A break-even probability of zero denotes that zero sampled parameter combinations achieved break-even within the evaluation horizon under current inputs.
-
----
-
-## Limitations
-
-1. **Aggregate Spatial Scale**: Volumetric balances are computed at global or national scale and do not represent watershed-level hydrological balances.
-2. **Absence of Scarcity Weighting**: The model does not weigh water savings by local water stress indices or aquifer depletion rates.
-3. **Exclusion of Embodied Water**: Scope 3 embodied water consumed during semiconductor manufacturing, server fabrication, and facility construction is excluded.
-4. **Static Macroeconomic Baselines**: Baseline water volumes $A$ and $D$ do not incorporate dynamic climate change, demographic shifts, or dietary transitions.
-5. **Absence of Economic Discounting**: Water balances are evaluated in physical volumetric units ($\text{m}^3$) without financial discounting or capital cost trade-offs.
-6. **Long-Horizon Coverage**: No source covers 2035-2077, which is most of the horizon; growth assumptions across this window reflect scenario assumptions rather than empirical projections.
+1. **Spatial Aggregation:** Volumetric balances are calculated at global scale. Water is physically non-fungible across regional watersheds; savings in an agricultural basin cannot offset cooling extraction from a stressed urban aquifer thousands of miles away.
+2. **Absence of Scarcity Weighting:** Cubic meters are aggregated without weighting by watershed-level baseline water stress, groundwater depletion rates, or seasonal flow variability.
+3. **Exclusion of Embodied Water (Scope 3):** Upstream water consumption in semiconductor supply chains (wafer fabrication, chemical refining) and facility construction is omitted.
+4. **Long-Horizon Projection Gaps:** Empirical data center power and water projections extend through 2030–2035 (IEA, LBNL). Growth assumptions between 2035 and 2077 reflect scenario assumptions rather than empirical forecasts.
+5. **Static Macroeconomic Baselines:** Desalination baseline $D$ and agricultural baseline $A$ are held constant over time, without dynamic feedback from climate change, population growth, or dietary shifts.
+6. **Interpretive Boundary:** All outputs reflect conditional outcomes under exploratory input distributions. They do not constitute deterministic forecasts of real-world water balances.
 
 ---
 
@@ -116,13 +120,13 @@ $$N(t) = \sum_{\tau=1}^t \left( \sum_i B_i(\tau) - C(\tau) \right)$$
 
 | Parameter | Unit | Basis | Region | Dist | Low | Mode | High | Source | Conf | Notes |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| `W_direct_global` | $\text{m}^3/\text{yr}$ | withdrawal | global | uniform | 4.2e9 | 5.4e9 | 6.6e9 | Li, Yang, Islam and Ren (2025) | B | Combined Scope 1+2 global water withdrawal. |
-| `W_indirect_global` | $\text{m}^3/\text{yr}$ | withdrawal | global | fixed | 0.0 | 0.0 | 0.0 | Li, Yang, Islam and Ren (2025) | B | Zero by construction; Scope 2 is in direct row. |
-| `W_direct_global_consumption` | $\text{m}^3/\text{yr}$ | consumption | global | uniform | 0.38e9 | 0.49e9 | 0.60e9 | Li, Yang, Islam and Ren (2025) | B | Combined Scope 1+2 global water consumption. |
-| `W_indirect_global_consumption` | $\text{m}^3/\text{yr}$ | consumption | global | fixed | 0.0 | 0.0 | 0.0 | Li, Yang, Islam and Ren (2025) | B | Zero by construction; Scope 2 is in direct row. |
-| `g_global` | dimensionless | n/a | global | triangular | 0.10 | 0.20 | 0.30 | IEA (2025) / LBNL / Xylem | C | First-phase rate; mode is judgment. No source covers 2035-2077. |
-| `G_global` | yr | n/a | global | triangular | 1.0 | 3.0 | 8.0 | IEA (2025) / LBNL / Xylem | C | First-phase duration; mode is judgment. No source covers 2035-2077. |
-| `g2_global` | dimensionless | n/a | global | triangular | -0.02 | 0.02 | 0.05 | IEA (2025) / LBNL / Xylem | C | Second-phase rate; mode is judgment. No source covers 2035-2077. |
+| `W_direct_global` | $\text{m}^3/\text{yr}$ | withdrawal | global | uniform | 4.2e9 | 5.4e9 | 6.6e9 | Li et al. (2025) | B | Combined Scope 1+2 global water withdrawal. |
+| `W_indirect_global` | $\text{m}^3/\text{yr}$ | withdrawal | global | fixed | 0.0 | 0.0 | 0.0 | Li et al. (2025) | B | Zero by construction; Scope 2 is in direct row. |
+| `W_direct_global_consumption` | $\text{m}^3/\text{yr}$ | consumption | global | uniform | 0.38e9 | 0.49e9 | 0.60e9 | Li et al. (2025) | B | Combined Scope 1+2 global water consumption. |
+| `W_indirect_global_consumption` | $\text{m}^3/\text{yr}$ | consumption | global | fixed | 0.0 | 0.0 | 0.0 | Li et al. (2025) | B | Zero by construction; Scope 2 is in direct row. |
+| `g_global` | dimensionless | n/a | global | triangular | 0.10 | 0.20 | 0.30 | IEA (2025) / LBNL / Xylem | C | Phase 1 growth rate; mode is judgment. No source covers 2035–2077. |
+| `G_global` | yr | n/a | global | triangular | 1.0 | 3.0 | 8.0 | IEA (2025) / LBNL / Xylem | C | Phase 1 duration; mode is judgment. No source covers 2035–2077. |
+| `g2_global` | dimensionless | n/a | global | triangular | -0.02 | 0.02 | 0.05 | IEA (2025) / LBNL / Xylem | C | Phase 2 growth rate; mode is judgment. No source covers 2035–2077. |
 | `W_direct_us` | $\text{gal}/\text{yr}$ | consumption | us | triangular | 1.5e10 | 1.74e10 | 2.0e10 | LBNL (2024) | A | Direct on-site data center water consumption. |
 | `W_indirect_us` | $\text{gal}/\text{yr}$ | consumption | us | triangular | 1.9e11 | 2.11e11 | 2.3e11 | LBNL (2024) | A | Indirect electricity-generation water consumption. |
 | `g_us` | dimensionless | n/a | us | triangular | 0.15 | 0.20 | 0.32 | LBNL (2024) | B | Reserved: no runnable scenario uses US growth rows. |
