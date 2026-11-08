@@ -89,6 +89,10 @@ Sensitivity rankings evaluate monotonic non-linear relationships between sampled
 - PRCC is an index of monotonic sensitivity, not a decomposition of variance explained ($R^2$).
 - **Dominance Safeguard:** If any parameter exhibits $|PRCC| > 0.85$, it is flagged with a `dominance_warning` in `sourcing_priority.csv` and triggers a console warning during simulation execution.
 
+The `sourcing_priority.csv` table includes two sensitivity columns:
+- **abs_prcc**: Absolute partial rank correlation of each sampled continuous parameter against the cumulative net balance $N(T)$; left empty for deployment draws (s_<pathway> rows) since the dominance check applies only to continuous parameters.
+- **abs_corr_breakeven**: Absolute partial rank correlation of each sampled continuous parameter and of each realized deployment draw (s_<pathway> rows) against the sustained break-even year, where "never" is assigned T+1; abs_prcc is dominated by failed runs when deployment is uncertain.
+
 ### Common-Random-Number (CRN) Knockouts
 To isolate structural drivers without Monte Carlo sampling variance, knockout scenarios reuse identical pseudo-random draws from the baseline run while selectively overriding target parameter subsets:
 - `alpha_1`: Attribution $\alpha_i = 1.0$ across all pathways.
@@ -102,6 +106,8 @@ To isolate structural drivers without Monte Carlo sampling variance, knockout sc
 
 ### Break-Even Threshold Surface
 A 2D threshold grid spans the 5th to 95th percentiles of two selected continuous parameters across $G \times G$ cells. For each cell, the break-even probability is computed over shared base draws of all remaining parameters, identifying critical non-linear feasibility boundaries.
+
+Threshold analysis supports optional range overrides (`--x-range LO HI`, `--y-range LO HI`) and log-spacing (`--log`) for grids spanning multiple orders of magnitude. Axis labels and the x and y columns of threshold_map.csv reflect the range actually used.
 
 ---
 

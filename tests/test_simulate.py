@@ -3,6 +3,7 @@ and marginal distributions.
 """
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from ai_water_breakeven.params import Parameter, load_parameters
@@ -238,6 +239,12 @@ def test_sourcing_priority_status_synthetic_rows():
     }
     sampled = {k: rng.uniform(0.1, 0.3, n) for k in params}
     y = rng.normal(0, 1, n)
+    
+    # Create varied benefit trajectories and break-even years so correlation computation works
+    desal_benefits = rng.uniform(0, 1, (n, 10))
+    solar_food_benefits = rng.uniform(0, 1, (n, 10))
+    be_years = rng.choice([5.0, 10.0, np.nan], size=n)
+    
     results = SimulationResults(
         t_horizon=10,
         n_samples=n,
@@ -248,11 +255,11 @@ def test_sourcing_priority_status_synthetic_rows():
         k_switch=0.0,
         time_steps=np.arange(1, 11),
         net_balance_trajectories=np.zeros((n, 10)),
-        be_years=np.full(n, np.nan),
+        be_years=be_years,
         crossover_years=np.full(n, np.nan),
         final_net_balances=y,
-        desal_benefits=np.zeros((n, 10)),
-        solar_food_benefits=np.zeros((n, 10)),
+        desal_benefits=desal_benefits,
+        solar_food_benefits=solar_food_benefits,
         cost_trajectories=np.zeros((n, 10)),
         cost_at_zero=np.ones(n),
         sampled_params=sampled,
@@ -267,5 +274,129 @@ def test_sourcing_priority_status_synthetic_rows():
     assert status_map["p_b_sourced"] == "sourced"
     assert status_map["p_placeholder"] == "PLACEHOLDER"
     assert status_map["p_missing"] == "MISSING"
+    
+    # Check that deployment rows are present
+    assert "s_desal" in df["parameter"].values
+    assert "s_solar_food" in df["parameter"].values
+
+
+def test_deployment_draw_determines_breakeven_correlation():
+    """Test (a): In a synthetic parameter set where one pathway's deployment draw fully determines break-even, s_<pathway> has the highest abs_corr_breakeven."""
+    n = 1000
+    rng = np.random.default_rng(999)
+    
+    # Synthetic set: desal always deployed and strong, solar_food deployment is critical
+    params = {
+        "W_direct_global": Parameter("W_direct_global", "", "m^3/yr", "withdrawal", "global", 2027, "fixed", 5.0e9, 5.0e9, 5.0e9, "S", "", "C", ""),
+        "W_indirect_global": Parameter("W_indirect_global", "", "m^3/yr", "withdrawal", "global", 2027, "fixed", 0.0, 0.0, 0.0, "S", "", "C", ""),
+        "g_global": Parameter("g_global", "", "dimensionless", "n/a", "global", 2027, "fixed", 0.0, 0.0, 0.0, "S", "", "C", ""),
+        "G_global": Parameter("G_global", "", "yr", "n/a", "global", 2027, "fixed", 5.0, 5.0, 5.0, "S", "", "C", ""),
+        "g2_global": Parameter("g2_global", "", "dimensionless", "n/a", "global", 2027, "fixed", 0.0, 0.0, 0.0, "S", "", "C", ""),
+        "p_desal": Parameter("p_desal", "", "dimensionless", "n/a", "global", 2027, "fixed", 1.0, 1.0, 1.0, "S", "", "C", ""),
+        "alpha_desal": Parameter("alpha_desal", "", "dimensionless", "n/a", "global", 2027, "fixed", 0.15, 0.15, 0.15, "S", "", "C", ""),
+        "rho_desal": Parameter("rho_desal", "", "dimensionless", "n/a", "global", 2027, "fixed", 0.0, 0.0, 0.0, "S", "", "C", ""),
+        "L_desal": Parameter("L_desal", "", "yr", "n/a", "global", 2027, "fixed", 0.0, 0.0, 0.0, "S", "", "C", ""),
+        "R_desal": Parameter("R_desal", "", "yr", "n/a", "global", 2027, "fixed", 0.0, 0.0, 0.0, "S", "", "C", ""),
+        "D_desal": Parameter("D_desal", "", "m^3/yr", "n/a", "global", 2027, "fixed", 1.0e10, 1.0e10, 1.0e10, "S", "", "C", ""),
+        "theta_desal": Parameter("theta_desal", "", "dimensionless", "n/a", "global", 2027, "fixed", 0.10, 0.10, 0.10, "S", "", "C", ""),
+        "p_solar_food": Parameter("p_solar_food", "", "dimensionless", "n/a", "global", 2027, "uniform", 0.0, 0.5, 1.0, "S", "", "C", ""),
+        "alpha_solar_food": Parameter("alpha_solar_food", "", "dimensionless", "n/a", "global", 2027, "fixed", 1.0, 1.0, 1.0, "S", "", "C", ""),
+        "rho_solar_food": Parameter("rho_solar_food", "", "dimensionless", "n/a", "global", 2027, "fixed", 0.0, 0.0, 0.0, "S", "", "C", ""),
+        "L_solar_food": Parameter("L_solar_food", "", "yr", "n/a", "global", 2027, "fixed", 0.0, 0.0, 0.0, "S", "", "C", ""),
+        "R_solar_food": Parameter("R_solar_food", "", "yr", "n/a", "global", 2027, "fixed", 0.0, 0.0, 0.0, "S", "", "C", ""),
+        "phi_solar_food": Parameter("phi_solar_food", "", "dimensionless", "n/a", "global", 2027, "fixed", 0.05, 0.05, 0.05, "S", "", "C", ""),
+        "A_solar_food": Parameter("A_solar_food", "", "m^3/yr", "withdrawal", "global", 2027, "fixed", 2.0e12, 2.0e12, 2.0e12, "S", "", "C", ""),
+        "r_solar_food": Parameter("r_solar_food", "", "dimensionless", "withdrawal", "global", 2027, "fixed", 0.0, 0.0, 0.0, "S", "", "C", ""),
+    }
+    
+    res = run_simulation(params, t_horizon=30, n_samples=n, seed=42)
+    df = compute_sourcing_priority(res)
+    
+    # s_solar_food should have the highest abs_corr_breakeven
+    top_param = df.iloc[0]["parameter"]
+    assert top_param == "s_solar_food", f"Expected s_solar_food to be top, got {top_param}"
+    assert df.iloc[0]["abs_corr_breakeven"] > 0.7
+
+
+def test_threshold_with_log_spacing_and_range():
+    """Test (b): threshold with --x-range 0.001 0.5 --log gives grid values inside the range with a constant ratio between neighbours."""
+    synthetic_params = {
+        "W_direct_global": Parameter("W_direct_global", "", "m^3/yr", "withdrawal", "global", 2027, "fixed", 5.0e9, 5.0e9, 5.0e9, "S", "", "C", ""),
+        "W_indirect_global": Parameter("W_indirect_global", "", "m^3/yr", "withdrawal", "global", 2027, "fixed", 0.0, 0.0, 0.0, "S", "", "C", ""),
+        "g_global": Parameter("g_global", "", "dimensionless", "n/a", "global", 2027, "triangular", 0.10, 0.20, 0.30, "S", "", "C", ""),
+        "G_global": Parameter("G_global", "", "yr", "n/a", "global", 2027, "fixed", 5.0, 5.0, 5.0, "S", "", "C", ""),
+        "g2_global": Parameter("g2_global", "", "dimensionless", "n/a", "global", 2027, "fixed", 0.0, 0.0, 0.0, "S", "", "C", ""),
+        "p_desal": Parameter("p_desal", "", "dimensionless", "n/a", "global", 2027, "fixed", 0.8, 0.8, 0.8, "S", "", "C", ""),
+        "alpha_desal": Parameter("alpha_desal", "", "dimensionless", "n/a", "global", 2027, "fixed", 0.15, 0.15, 0.15, "S", "", "C", ""),
+        "rho_desal": Parameter("rho_desal", "", "dimensionless", "n/a", "global", 2027, "fixed", 0.10, 0.10, 0.10, "S", "", "C", ""),
+        "L_desal": Parameter("L_desal", "", "yr", "n/a", "global", 2027, "fixed", 5.0, 5.0, 5.0, "S", "", "C", ""),
+        "R_desal": Parameter("R_desal", "", "yr", "n/a", "global", 2027, "fixed", 10.0, 10.0, 10.0, "S", "", "C", ""),
+        "D_desal": Parameter("D_desal", "", "m^3/yr", "n/a", "global", 2027, "fixed", 3.5e10, 3.5e10, 3.5e10, "S", "", "C", ""),
+        "theta_desal": Parameter("theta_desal", "", "dimensionless", "n/a", "global", 2027, "fixed", 0.05, 0.05, 0.05, "S", "", "C", ""),
+        "p_solar_food": Parameter("p_solar_food", "", "dimensionless", "n/a", "global", 2027, "fixed", 0.5, 0.5, 0.5, "S", "", "C", ""),
+        "alpha_solar_food": Parameter("alpha_solar_food", "", "dimensionless", "n/a", "global", 2027, "triangular", 0.001, 0.1, 0.5, "S", "", "C", ""),
+        "rho_solar_food": Parameter("rho_solar_food", "", "dimensionless", "n/a", "global", 2027, "fixed", 0.10, 0.10, 0.10, "S", "", "C", ""),
+        "L_solar_food": Parameter("L_solar_food", "", "yr", "n/a", "global", 2027, "fixed", 5.0, 5.0, 5.0, "S", "", "C", ""),
+        "R_solar_food": Parameter("R_solar_food", "", "yr", "n/a", "global", 2027, "fixed", 10.0, 10.0, 10.0, "S", "", "C", ""),
+        "phi_solar_food": Parameter("phi_solar_food", "", "dimensionless", "n/a", "global", 2027, "triangular", 0.001, 0.05, 0.13, "S", "", "C", ""),
+        "A_solar_food": Parameter("A_solar_food", "", "m^3/yr", "withdrawal", "global", 2027, "fixed", 2.8e12, 2.8e12, 2.8e12, "S", "", "C", ""),
+        "r_solar_food": Parameter("r_solar_food", "", "dimensionless", "withdrawal", "global", 2027, "fixed", 0.20, 0.20, 0.20, "S", "", "C", ""),
+    }
+    
+    table = compute_threshold_map(
+        synthetic_params,
+        "alpha_solar_food",
+        "phi_solar_food",
+        horizon=20,
+        grid=5,
+        n_per_cell=200,
+        seed=23,
+        x_range=(0.001, 0.5),
+        y_range=(0.001, 0.13),
+        log_spacing=True,
+    )
+    
+    x_values = np.sort(table["x"].unique())
+    y_values = np.sort(table["y"].unique())
+    
+    # Check x range
+    assert np.isclose(x_values[0], 0.001, rtol=0.01)
+    assert np.isclose(x_values[-1], 0.5, rtol=0.01)
+    
+    # Check y range
+    assert np.isclose(y_values[0], 0.001, rtol=0.01)
+    assert np.isclose(y_values[-1], 0.13, rtol=0.01)
+    
+    # Check constant ratio (log spacing)
+    x_ratios = x_values[1:] / x_values[:-1]
+    assert np.allclose(x_ratios, x_ratios[0], rtol=0.01)
+    
+    y_ratios = y_values[1:] / y_values[:-1]
+    assert np.allclose(y_ratios, y_ratios[0], rtol=0.01)
+
+
+def test_threshold_default_unchanged(base_params):
+    """Test (c): default threshold output is unchanged."""
+    # Run with default settings (no range, no log)
+    table_default = compute_threshold_map(
+        base_params, "g_global", "phi_solar_food", horizon=30, grid=3, n_per_cell=200, seed=42
+    )
+    
+    # Run with explicit None ranges and log_spacing=False
+    table_explicit = compute_threshold_map(
+        base_params,
+        "g_global",
+        "phi_solar_food",
+        horizon=30,
+        grid=3,
+        n_per_cell=200,
+        seed=42,
+        x_range=None,
+        y_range=None,
+        log_spacing=False,
+    )
+    
+    # Should be identical
+    pd.testing.assert_frame_equal(table_default, table_explicit)
 
 

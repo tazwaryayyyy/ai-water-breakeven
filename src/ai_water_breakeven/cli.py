@@ -306,6 +306,12 @@ def cmd_threshold(args: argparse.Namespace) -> int:
     x_name, y_name = getattr(args, "x", "g_global"), getattr(args, "y", "phi_solar_food")
     horizon = getattr(args, "horizon", None) or cfg.get("conditions_horizon", 30)
     grid, n_per_cell = getattr(args, "grid", 15), getattr(args, "n_per_cell", 5000)
+    
+    # Extract range arguments
+    x_range = getattr(args, "x_range", None)
+    y_range = getattr(args, "y_range", None)
+    log_spacing = getattr(args, "log", False)
+    
     table = compute_threshold_map(
         params,
         x_name,
@@ -317,6 +323,9 @@ def cmd_threshold(args: argparse.Namespace) -> int:
         cfg.get("k", 0.0),
         region,
         basis,
+        x_range=x_range,
+        y_range=y_range,
+        log_spacing=log_spacing,
     )
     active, _ = select_scenario_parameters(params, region, basis)
     by_name = {param.name: param for param in active.values()}
@@ -435,6 +444,9 @@ def main() -> None:
             sp.add_argument("--horizon", type=int, default=30)
             sp.add_argument("--grid", type=int, default=15)
             sp.add_argument("--n-per-cell", dest="n_per_cell", type=int, default=5000)
+            sp.add_argument("--x-range", nargs=2, type=float, default=None, metavar=("LO", "HI"))
+            sp.add_argument("--y-range", nargs=2, type=float, default=None, metavar=("LO", "HI"))
+            sp.add_argument("--log", action="store_true")
 
     args = p.parse_args()
     cmds = {

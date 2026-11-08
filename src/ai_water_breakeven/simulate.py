@@ -301,6 +301,9 @@ def compute_threshold_map(
     k_switch: float = 0.0,
     region: str = "global",
     basis: str = "withdrawal",
+    x_range: Tuple[float, float] | None = None,
+    y_range: Tuple[float, float] | None = None,
+    log_spacing: bool = False,
 ) -> pd.DataFrame:
     """Map break-even probability by fixing two columns over shared base draws."""
     if grid < 2:
@@ -312,8 +315,26 @@ def compute_threshold_map(
     if x_name not in role_by_name or y_name not in role_by_name:
         raise ValueError("Threshold axes must be selected parameters for the requested region and basis")
     x_param, y_param = active[role_by_name[x_name]], active[role_by_name[y_name]]
-    x_values = np.linspace(*sample_inverse_cdf(x_param, np.array([0.05, 0.95])), grid)
-    y_values = np.linspace(*sample_inverse_cdf(y_param, np.array([0.05, 0.95])), grid)
+    
+    # Determine x and y ranges
+    if x_range is not None:
+        x_lo, x_hi = x_range
+    else:
+        x_lo, x_hi = sample_inverse_cdf(x_param, np.array([0.05, 0.95]))
+    
+    if y_range is not None:
+        y_lo, y_hi = y_range
+    else:
+        y_lo, y_hi = sample_inverse_cdf(y_param, np.array([0.05, 0.95]))
+    
+    # Generate grid values
+    if log_spacing:
+        x_values = np.geomspace(x_lo, x_hi, grid)
+        y_values = np.geomspace(y_lo, y_hi, grid)
+    else:
+        x_values = np.linspace(x_lo, x_hi, grid)
+        y_values = np.linspace(y_lo, y_hi, grid)
+    
     base_samples, base_deployments = sample_parameter_matrix(
         list(active.values()), n_per_cell, create_scenario_rng(seed, 17)
     )
@@ -458,6 +479,26 @@ def compute_sourcing_priority(results: SimulationResults) -> pd.DataFrame:
     """Rank sampled inputs by absolute PRCC and retain traceable source metadata."""
     prcc = compute_prcc(results.sampled_params, results.final_net_balances)
     parameter_by_name = {p.name: p for p in results.active_parameters.values()}
+    
+    # Compute correlation with break-even year (assign T+1 to "never")
+    be_years_coded = np.where(np.isnan(results.be_years), results.t_horizon + 1, results.be_years)
+    
+    # Build combined dict: sampled parameters + deployment draws
+    all_inputs = dict(results.sampled_params)
+    # Add deployment draws as s_<pathway>
+    for pathway in ["desal", "solar_food"]:
+        key = f"s_{pathway}"
+        # Reconstruct from benefit trajectories: if any benefit > 0, deployment = 1
+        if pathway == "desal":
+            deployed = (np.sum(results.desal_benefits, axis=1) > 0).astype(float)
+        else:
+            deployed = (np.sum(results.solar_food_benefits, axis=1) > 0).astype(float)
+        all_inputs[key] = deployed
+    
+    # Compute PRCC-style correlation for all inputs against be_years_coded
+    prcc_be = compute_prcc(all_inputs, be_years_coded)
+    prcc_be_dict = {row["parameter"]: abs(row["prcc"]) for _, row in prcc_be.iterrows()}
+    
     rows = []
     for _, row in prcc.iterrows():
         parameter = parameter_by_name.get(row["parameter"])
@@ -478,6 +519,7 @@ def compute_sourcing_priority(results: SimulationResults) -> pd.DataFrame:
                 "parameter": parameter.name,
                 "prcc": row["prcc"],
                 "abs_prcc": abs_prcc,
+                "abs_corr_breakeven": prcc_be_dict.get(parameter.name, np.nan),
                 "status": status,
                 "confidence": parameter.confidence,
                 "source": parameter.source,
@@ -485,12 +527,31 @@ def compute_sourcing_priority(results: SimulationResults) -> pd.DataFrame:
                 "dominance_warning": bool(abs_prcc > 0.85),
             }
         )
+    
+    # Add deployment draw rows
+    for pathway in ["desal", "solar_food"]:
+        key = f"s_{pathway}"
+        rows.append(
+            {
+                "parameter": key,
+                "prcc": np.nan,
+                "abs_prcc": np.nan,
+                "abs_corr_breakeven": prcc_be_dict.get(key, np.nan),
+                "status": "deployment",
+                "confidence": "",
+                "source": "",
+                "rank_notice": "Ranks depend on the current input ranges and are provisional.",
+                "dominance_warning": False,
+            }
+        )
+    
     if not rows:
         return pd.DataFrame(
             columns=[
                 "parameter",
                 "prcc",
                 "abs_prcc",
+                "abs_corr_breakeven",
                 "status",
                 "confidence",
                 "source",
@@ -498,7 +559,7 @@ def compute_sourcing_priority(results: SimulationResults) -> pd.DataFrame:
                 "dominance_warning",
             ]
         )
-    return pd.DataFrame(rows).sort_values("abs_prcc", ascending=False).reset_index(drop=True)
+    return pd.DataFrame(rows).sort_values("abs_corr_breakeven", ascending=False).reset_index(drop=True)
 
 
 def compute_tornado(

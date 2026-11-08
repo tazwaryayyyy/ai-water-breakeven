@@ -103,7 +103,7 @@ $$B_i(t) = s_i \cdot \alpha_i \cdot \text{Gross}_i \cdot \text{ramp}_i(t) \cdot 
 | `run` | `[--out-dir DIR] [--samples N] [--horizon T]` | Executes Monte Carlo simulation; writes `summary.csv`, `prcc.csv`, `sourcing_priority.csv`, and trajectory files. |
 | `figures` | `[--out-dir DIR] [--samples N]` | Generates publication figures (`fig1` through `fig5`) in PNG (300 DPI) and SVG. |
 | `knockouts` | `[--out-dir DIR] [--samples N]` | Runs Common-Random-Number structural knockouts (e.g., zero rebound, no delay, flat cost); produces `fig6_knockouts`. |
-| `threshold` | `[--x PARAM] [--y PARAM] [--grid G]` | Evaluates 2D break-even parameter response surfaces over shared base draws; produces `fig7_threshold_map`. |
+| `threshold` | `[--x PARAM] [--y PARAM] [--grid G] [--x-range LO HI] [--y-range LO HI] [--log]` | Evaluates 2D break-even parameter response surfaces over shared base draws; produces `fig7_threshold_map`. Optional range overrides and log-spacing. |
 | `reproduce` | `[--out-dir DIR]` | Runs complete pipeline across all runnable scenario configurations and records run manifests. |
 
 ## Generated Artifacts
