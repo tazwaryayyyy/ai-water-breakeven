@@ -2,7 +2,7 @@
 
 Monte Carlo simulation model evaluating whether counterfactual water savings from AI-enabled technologies (desalination optimization, agricultural displacement) can offset the operational water consumption and withdrawal of global AI compute infrastructure.
 
-> Status: most inputs are PLACEHOLDER or MISSING in data/parameters.csv. Outputs are illustrative, not findings. Do not cite them. Sourced: the global AI water baseline (Li et al. 2025) and the agricultural blue-water baseline A on the consumption basis. Assumptions informed by sources, not measured rates: g_global, G_global, g2_global, phi_solar_food and r_solar_food_consumption. Deployment probabilities, attribution shares, rebound, lags and all desalination inputs are placeholders.
+> Status: most inputs are PLACEHOLDER or MISSING in `data/parameters.csv`. Outputs are illustrative, not findings. Do not cite them. Sourced: the global AI water baseline (Li et al. 2025) and the agricultural blue-water baseline A on the consumption basis. Assumptions informed by sources, not measured rates: `g_global`, `G_global`, `g2_global`, `phi_solar_food` and `r_solar_food_consumption`. Deployment probabilities, attribution shares, rebound, lags and all desalination inputs are placeholders.
 
 ## Quickstart
 
@@ -85,7 +85,7 @@ $$B_i(t) = s_i \cdot \alpha_i \cdot \text{Gross}_i \cdot \text{ramp}_i(t) \cdot 
 
 1. **Physical Basis Consistency:**
    - `withdrawal`: Total volume extracted from water sources. Both desalination and agricultural displacement are active.
-   - `consumption`: Volume evaporated or permanently incorporated into products. Electro-agriculture input $A_{\text{solar\_food\_consumption}}$ is set to 0.0 as a non-claim sentinel. The model detects this zero-ceiling condition dynamically and outputs a `basis_notice` across tables and figures.
+   - `consumption`: Volume evaporated or permanently incorporated into products. Electro-agriculture input `A_solar_food_consumption` is set to 0.0 as a non-claim sentinel. The model detects this zero-ceiling condition dynamically and outputs a `basis_notice` across tables and figures.
    - Mixing withdrawal and consumption within a single scenario is disallowed by default.
 
 2. **Regional Scopes:**
@@ -112,7 +112,7 @@ $$B_i(t) = s_i \cdot \alpha_i \cdot \text{Gross}_i \cdot \text{ramp}_i(t) \cdot 
 | :--- | :--- |
 | `summary.json` / `.csv` | Horizon break-even probabilities, Wilson confidence intervals, MCSE, $N(T)$ quantiles, benefit shares, and notice disclosures. |
 | `prcc.csv` | Partial Rank Correlation Coefficients of continuous parameters against cumulative net balance $N(T)$. |
-| `sourcing_priority.csv` | Parameters ranked by $|PRCC|$ with source traceability, confidence tiers, and dominance warnings. |
+| `sourcing_priority.csv` | Parameters ranked by absolute PRCC with source traceability, confidence tiers, and dominance warnings. |
 | `conditions.csv` | Parameter medians and IQRs stratified by runs achieving sustained break-even by year 30. |
 | `cost_trajectory.csv` | Cost percentiles $C(t)$ and compounding ratios $C(t)/C(0)$ at benchmark years (5, 10, 25, 50). |
 | `net_balance_by_horizon.csv` | Cumulative balance $N(t)$ percentiles across comparison horizons. |
