@@ -143,7 +143,7 @@ $$B_i(t) = s_i \cdot \alpha_i \cdot \text{Gross}_i \cdot \text{ramp}_i(t) \cdot 
 ```
 
 Primary AI water benchmark:
-- Li, P., Yang, J., Islam, M. A., & Ren, S. (2025). "Making AI Less 'Thirsty': Uncovering and Addressing the Secret Water Footprint of AI Models." *Communications of the ACM*, 68(7), 54–61. Preprint: [arXiv:2304.03271](https://doi.org/10.48550/arXiv.2304.03271).
+- Li, P., Yang, J., Islam, M. A., & Ren, S. (2025). "Making AI Less 'Thirsty': Uncovering and Addressing the Secret Water Footprint of AI Models." *Communications of the ACM*, 68(7), 54–61. [DOI: 10.1145/3724499](https://doi.org/10.1145/3724499). Preprint: [arXiv:2304.03271](https://doi.org/10.48550/arXiv.2304.03271).
 
 ## License
 
