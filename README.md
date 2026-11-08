@@ -97,14 +97,16 @@ $$B_i(t) = s_i \cdot \alpha_i \cdot \text{Gross}_i \cdot \text{ramp}_i(t) \cdot 
 
 ## CLI Reference
 
-| Command | Arguments | Description |
-| :--- | :--- | :--- |
-| `validate` | `[--strict] [--region REGION] [--basis BASIS]` | Checks parameter schema bounds, physical basis consistency, and unverified source flags. |
-| `run` | `[--out-dir DIR] [--samples N] [--horizon T]` | Executes Monte Carlo simulation; writes `summary.csv`, `prcc.csv`, `sourcing_priority.csv`, and trajectory files. |
-| `figures` | `[--out-dir DIR] [--samples N]` | Generates publication figures (`fig1` through `fig5`) in PNG (300 DPI) and SVG. |
-| `knockouts` | `[--out-dir DIR] [--samples N]` | Runs Common-Random-Number structural knockouts (e.g., zero rebound, no delay, flat cost); produces `fig6_knockouts`. |
-| `threshold` | `[--x PARAM] [--y PARAM] [--grid G] [--x-range LO HI] [--y-range LO HI] [--log]` | Evaluates 2D break-even parameter response surfaces over shared base draws; produces `fig7_threshold_map`. Optional range overrides and log-spacing. |
-| `reproduce` | `[--out-dir DIR]` | Runs complete pipeline across all runnable scenario configurations and records run manifests. |
+Common defaults are `--parameters data/parameters.csv`, `--config configs/base.toml`, `--region None` and `--basis None` (the config selects `global` and `withdrawal`), and false `--strict` and `--allow-mixed-basis`. For `--samples` and run `--horizon`, `None` selects the config values `N = 100000` and `T = 50`.
+
+| Command | Flags | Defaults | Description |
+| :--- | :--- | :--- | :--- |
+| `validate` | `[--parameters PARAMETERS] [--config CONFIG] [--strict] [--allow-mixed-basis] [--region {global,us}] [--basis {withdrawal,consumption}]` | Common defaults. | Checks parameter schema bounds, physical basis consistency, and unverified source flags. |
+| `run` | `[--parameters PARAMETERS] [--config CONFIG] [--strict] [--allow-mixed-basis] [--region {global,us}] [--basis {withdrawal,consumption}] [--out-dir OUT_DIR] [--samples SAMPLES] [--horizon HORIZON]` | `--out-dir results`; `--samples None` (100000); `--horizon None` (50). | Executes Monte Carlo simulation; writes `summary.csv`, `prcc.csv`, `sourcing_priority.csv`, and trajectory files. |
+| `figures` | `[--parameters PARAMETERS] [--config CONFIG] [--strict] [--allow-mixed-basis] [--region {global,us}] [--basis {withdrawal,consumption}] [--out-dir OUT_DIR] [--samples SAMPLES]` | `--out-dir results`; `--samples None` (100000). | Generates publication figures (`fig1` through `fig5`) in PNG (300 DPI) and SVG. |
+| `knockouts` | `[--parameters PARAMETERS] [--config CONFIG] [--strict] [--allow-mixed-basis] [--region {global,us}] [--basis {withdrawal,consumption}] [--out-dir OUT_DIR] [--samples SAMPLES] [--horizon HORIZON]` | `--out-dir results`; `--samples None` (100000); `--horizon None` (50). | Runs Common-Random-Number structural knockouts (e.g., zero rebound, no delay, flat cost); produces `fig6_knockouts`. |
+| `threshold` | `[--parameters PARAMETERS] [--config CONFIG] [--strict] [--allow-mixed-basis] [--region {global,us}] [--basis {withdrawal,consumption}] [--out-dir OUT_DIR] [--samples SAMPLES] [--x X] [--y Y] [--horizon HORIZON] [--grid GRID] [--n-per-cell N_PER_CELL] [--x-range LO HI] [--y-range LO HI] [--log]` | `--out-dir results`; `--samples None`; `--x g_global`; `--y phi_solar_food`; `--horizon 30`; `--grid 15`; `--n-per-cell 5000`; `--x-range None`; `--y-range None`; `--log` false. | Evaluates 2D break-even parameter response surfaces over shared base draws; produces `fig7_threshold_map`. Optional range overrides and log-spacing. |
+| `reproduce` | `[--parameters PARAMETERS] [--config CONFIG] [--strict] [--allow-mixed-basis] [--region {global,us}] [--basis {withdrawal,consumption}] [--out-dir OUT_DIR] [--samples SAMPLES] [--horizon HORIZON]` | `--out-dir results`; `--samples None` (100000); `--horizon None` (50). | Runs complete pipeline across all runnable scenario configurations and records run manifests. |
 
 ## Generated Artifacts
 

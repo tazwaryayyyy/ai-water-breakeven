@@ -89,9 +89,10 @@ Sensitivity rankings evaluate monotonic non-linear relationships between sampled
 - PRCC is an index of monotonic sensitivity, not a decomposition of variance explained ($R^2$).
 - **Dominance Safeguard:** If any parameter exhibits $|PRCC| > 0.85$, it is flagged with a `dominance_warning` in `sourcing_priority.csv` and triggers a console warning during simulation execution.
 
-The `sourcing_priority.csv` table includes two sensitivity columns:
-- `abs_prcc`: Absolute partial rank correlation of each sampled continuous parameter against the cumulative net balance $N(T)$; left empty for deployment draws (`s_<pathway>` rows) since the dominance check applies only to continuous parameters.
-- `abs_corr_breakeven`: Absolute partial rank correlation of each sampled continuous parameter and of each realized deployment draw (`s_<pathway>` rows) against the sustained break-even year, where "never" is assigned $T+1$; `abs_prcc` is dominated by failed runs when deployment is uncertain.
+The `sourcing_priority.csv` table includes two sensitivity columns and one deployment row per pathway:
+- `abs_corr_breakeven`: Absolute partial rank correlation of each sampled continuous parameter and realized deployment draw against the sustained break-even year, with "never" coded as $T+1$.
+- `abs_prcc`: Absolute partial rank correlation of each sampled continuous parameter against the cumulative net balance $N(T)$.
+- `s_<pathway>` rows: Realized Bernoulli deployment draws whose break-even correlations are reported in `abs_corr_breakeven`, with `prcc` and `abs_prcc` left empty because the dominance check applies only to continuous parameters.
 
 ### Common-Random-Number (CRN) Knockouts
 To isolate structural drivers without Monte Carlo sampling variance, knockout scenarios reuse identical pseudo-random draws from the baseline run while selectively overriding target parameter subsets:
@@ -113,7 +114,9 @@ Threshold analysis supports optional range overrides (`--x-range LO HI`, `--y-ra
 
 ## Reading Results
 
-Results are stated as "in X% of simulated scenarios under these inputs", never as real-world probabilities; "never" means no sustained break-even within T.
+Results are stated as "in X% of simulated scenarios under these inputs", never as real-world probabilities; "never" means no sustained break-even within $T$.
+
+Deployment is a single Bernoulli draw per pathway, so the break-even probability is bounded above by the probability that at least one pathway deploys; report the `success_1` knockout and the threshold map alongside it.
 
 ---
 
@@ -128,6 +131,7 @@ Results are stated as "in X% of simulated scenarios under these inputs", never a
 7. **No Discounting:** No discounting is applied.
 8. **Independent Sampling:** Inputs are sampled independently.
 9. **Sentinel Gross Benefits:** A `basis_notice` flags any pathway whose sampled gross benefit is identically zero (today the `solar_food` sentinels under `basis=consumption`).
+10. The water footprint of the AI-enabled systems themselves (sensors, inference) is not modeled beyond the pathway intensity $r$.
 
 ---
 
