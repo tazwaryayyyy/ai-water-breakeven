@@ -39,7 +39,7 @@ where:
 - $g_2$: Phase 2 long-term annual growth rate (reflecting saturation or post-transition efficiency gains).
 
 ### Technology Deployment and Ramp
-For each potential benefit pathway $i \in \{\text{desal}, \text{solar\_food}\}$:
+For each potential benefit pathway $i \in \{\text{desal}, \text{solar food}\}$:
 
 $$s_i \sim \text{Bernoulli}(p_i)$$
 
@@ -62,7 +62,7 @@ where:
    where $D$ is baseline global desalination production volume (m³/yr), and $\theta$ is fractional efficiency/capacity enhancement enabled by AI process control.
 
 2. **Electro-Agriculture / Solar Food Synthesis:**
-   $$\text{Gross}_{\text{solar\_food}} = \phi \cdot A \cdot (1 - r)$$
+   $$\text{Gross}_{\text{solar food}} = \phi \cdot A \cdot (1 - r)$$
    where $A$ is global agricultural freshwater footprint (m³/yr), $\phi$ is the fraction of conventional agriculture displaced by synthetic production, and $r$ is the relative water intensity of synthetic alternatives compared to conventional crops.
 
 ### Cumulative Balance and Break-Even Criteria
@@ -130,7 +130,7 @@ Deployment is a single Bernoulli draw per pathway, so the break-even probability
 6. **Interpretive Boundary:** All outputs reflect conditional outcomes under exploratory input distributions. They do not constitute deterministic forecasts of real-world water balances.
 7. **No Discounting:** No discounting is applied.
 8. **Independent Sampling:** Inputs are sampled independently.
-9. **Sentinel Gross Benefits:** A `basis_notice` flags any pathway whose sampled gross benefit is identically zero (today the `solar_food` sentinels under `basis=consumption`).
+9. **Sentinel Gross Benefits:** A basis_notice flags any pathway whose sampled gross benefit is identically zero; with the current inputs none is.
 10. The water footprint of the AI-enabled systems themselves (sensors, inference) is not modeled beyond the pathway intensity $r$.
 
 ---

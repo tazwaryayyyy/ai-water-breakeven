@@ -70,7 +70,7 @@ $$C(t) = (W_{\text{direct}} + k \cdot W_{\text{indirect}}) \cdot (1 + g_1)^{\min
 
 ### Technology Benefit Pathways
 
-For each benefit pathway $i \in \{\text{desal}, \text{solar\_food}\}$:
+For each benefit pathway $i \in \{\text{desal}, \text{solar food}\}$:
 
 $$B_i(t) = s_i \cdot \alpha_i \cdot \text{Gross}_i \cdot \text{ramp}_i(t) \cdot (1 - \rho_i)$$
 
@@ -79,13 +79,13 @@ $$B_i(t) = s_i \cdot \alpha_i \cdot \text{Gross}_i \cdot \text{ramp}_i(t) \cdot 
 - $\rho_i \ge 0$: Rebound effect consumption fraction.
 - $\text{ramp}_i(t)$: Piecewise linear adoption ramp starting after lag $L_i$ and taking $R_i$ years to reach full deployment.
 - $\text{Gross}_{\text{desal}} = D \cdot \theta$: Global desalination volume $D$ multiplied by AI fractional efficiency gain $\theta$.
-- $\text{Gross}_{\text{solar\_food}} = \phi \cdot A \cdot (1 - r)$: Baseline agricultural freshwater $A$ displaced by fraction $\phi$, adjusted for synthetic food water intensity $r$.
+- $\text{Gross}_{\text{solar food}} = \phi \cdot A \cdot (1 - r)$: Baseline agricultural freshwater $A$ displaced by fraction $\phi$, adjusted for synthetic food water intensity $r$.
 
 ## Accounting Rules and Scope Safeguards
 
 1. **Physical Basis Consistency:**
    - `withdrawal`: Total volume extracted from water sources. Both desalination and agricultural displacement are active.
-   - `consumption`: Volume evaporated or permanently incorporated into products. Electro-agriculture input `A_solar_food_consumption` is set to 0.0 as a non-claim sentinel. The model detects this zero-ceiling condition dynamically and outputs a `basis_notice` across tables and figures.
+   - `consumption`: Volume evaporated or permanently incorporated into products. If a pathway's sampled gross benefit is identically zero (for example, an unset sentinel input), the model detects it and outputs a `basis_notice`; with the current inputs no pathway is zero.
    - Mixing withdrawal and consumption within a single scenario is disallowed by default.
 
 2. **Regional Scopes:**
