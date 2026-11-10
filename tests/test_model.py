@@ -201,4 +201,3 @@ def test_g2_sustained_growth_bound():
         t,
     )
     assert float(cost[0, 0]) / 100.0 < 10.0
-

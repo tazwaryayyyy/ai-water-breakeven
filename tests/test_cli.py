@@ -131,12 +131,18 @@ def test_placeholder_watermark_in_all_outputs_and_strict_fails(tmp_path):
 
     for csv_file in csv_files:
         content = csv_file.read_text(encoding="utf-8")
-        assert "PLACEHOLDER INPUTS - NOT FOR PUBLICATION" in content, f"Missing mark in {csv_file.name}"
+        assert "PLACEHOLDER INPUTS - NOT FOR PUBLICATION" in content, (
+            f"Missing mark in {csv_file.name}"
+        )
 
     for json_file in json_files:
         content = json_file.read_text(encoding="utf-8")
-        assert "PLACEHOLDER INPUTS - NOT FOR PUBLICATION" in content, f"Missing mark in {json_file.name}"
+        assert "PLACEHOLDER INPUTS - NOT FOR PUBLICATION" in content, (
+            f"Missing mark in {json_file.name}"
+        )
 
     for svg_file in svg_files:
         content = svg_file.read_text(encoding="utf-8")
-        assert "PLACEHOLDER INPUTS - NOT FOR PUBLICATION" in content, f"Missing mark in {svg_file.name}"
+        assert "PLACEHOLDER INPUTS - NOT FOR PUBLICATION" in content, (
+            f"Missing mark in {svg_file.name}"
+        )

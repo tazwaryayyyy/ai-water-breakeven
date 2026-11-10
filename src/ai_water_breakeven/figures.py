@@ -291,8 +291,13 @@ def plot_knockout_probabilities(
     basis_notice: str | None = None,
 ) -> None:
     """Draw common-random-number knockout probabilities with Wilson intervals."""
-    suffix = "yr30" if "p_breakeven_yr30" in df else "yr" + str(
-        max(int(c.removeprefix("p_breakeven_yr")) for c in df if c.startswith("p_breakeven_yr"))
+    suffix = (
+        "yr30"
+        if "p_breakeven_yr30" in df
+        else "yr"
+        + str(
+            max(int(c.removeprefix("p_breakeven_yr")) for c in df if c.startswith("p_breakeven_yr"))
+        )
     )
     p_col, low_col, high_col = (
         f"p_breakeven_{suffix}",

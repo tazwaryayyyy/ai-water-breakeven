@@ -17,8 +17,8 @@ import scipy
 import ai_water_breakeven
 from ai_water_breakeven.figures import (
     plot_breakeven_distribution,
-    plot_net_balance_fan_chart,
     plot_knockout_probabilities,
+    plot_net_balance_fan_chart,
     plot_probability_vs_horizon,
     plot_scope_comparison,
     plot_threshold_map,
@@ -38,12 +38,12 @@ from ai_water_breakeven.simulate import (
     compute_knockout_table,
     compute_net_balance_by_horizon,
     compute_prcc,
-    compute_summary_metrics,
     compute_sourcing_priority,
-    compute_tornado,
+    compute_summary_metrics,
     compute_threshold_map,
-    run_simulation,
+    compute_tornado,
     run_knockout_scenarios,
+    run_simulation,
 )
 
 PLACEHOLDER_NOTICE = "PLACEHOLDER INPUTS - NOT FOR PUBLICATION"
@@ -139,7 +139,9 @@ def cmd_run(args: argparse.Namespace) -> int:
     )
 
     try:
-        validate_parameters(params, region=region, basis=basis, strict=strict, allow_mixed_basis=allow_m)
+        validate_parameters(
+            params, region=region, basis=basis, strict=strict, allow_mixed_basis=allow_m
+        )
     except ValueError as e:
         print(f"Validation failed:\n{e}", file=sys.stderr)
         return 1
@@ -160,7 +162,9 @@ def cmd_run(args: argparse.Namespace) -> int:
     json.dump(summary, open(out / "summary.json", "w", encoding="utf-8"), indent=2)
     _write_table(pd.DataFrame([summary]), out / "summary.csv", res.has_placeholder)
     _write_table(
-        compute_prcc(res.sampled_params, res.final_net_balances), out / "prcc.csv", res.has_placeholder
+        compute_prcc(res.sampled_params, res.final_net_balances),
+        out / "prcc.csv",
+        res.has_placeholder,
     )
     _write_table(
         compute_tornado(params, t_h, k_sw, region=region, basis=basis),
@@ -192,7 +196,8 @@ def cmd_run(args: argparse.Namespace) -> int:
     if n_dominant > 0:
         names_str = ", ".join(dominant_params)
         print(
-            f"{n_dominant} parameter(s) have |PRCC| > 0.85 ({names_str}) - check sourcing_priority.csv before treating results as more than illustrative."
+            f"{n_dominant} parameter(s) have |PRCC| > 0.85 ({names_str}) - "
+            "check sourcing_priority.csv before treating results as more than illustrative."
         )
     print(f"Run complete. Outputs in {out}")
     return 0
@@ -221,8 +226,28 @@ def cmd_figures(args: argparse.Namespace) -> int:
         print(f"Validation failed:\n{e}", file=sys.stderr)
         return 1
 
-    r0 = run_simulation(params, t_h, n_s, 0.0, seed=seed, scenario_idx=0, allow_mixed_basis=allow_m, region=region, basis=basis)
-    r1 = run_simulation(params, t_h, n_s, 1.0, seed=seed, scenario_idx=1, allow_mixed_basis=allow_m, region=region, basis=basis)
+    r0 = run_simulation(
+        params,
+        t_h,
+        n_s,
+        0.0,
+        seed=seed,
+        scenario_idx=0,
+        allow_mixed_basis=allow_m,
+        region=region,
+        basis=basis,
+    )
+    r1 = run_simulation(
+        params,
+        t_h,
+        n_s,
+        1.0,
+        seed=seed,
+        scenario_idx=1,
+        allow_mixed_basis=allow_m,
+        region=region,
+        basis=basis,
+    )
 
     plot_breakeven_distribution(r0, out / "fig1_breakeven_dist")
     plot_probability_vs_horizon(r0, out / "fig2_p_breakeven_horizon")
@@ -306,12 +331,12 @@ def cmd_threshold(args: argparse.Namespace) -> int:
     x_name, y_name = getattr(args, "x", "g_global"), getattr(args, "y", "phi_solar_food")
     horizon = getattr(args, "horizon", None) or cfg.get("conditions_horizon", 30)
     grid, n_per_cell = getattr(args, "grid", 15), getattr(args, "n_per_cell", 5000)
-    
+
     # Extract range arguments
     x_range = getattr(args, "x_range", None)
     y_range = getattr(args, "y_range", None)
     log_spacing = getattr(args, "log", False)
-    
+
     table = compute_threshold_map(
         params,
         x_name,
@@ -341,11 +366,13 @@ def cmd_threshold(args: argparse.Namespace) -> int:
     thresh_notices = []
     if float(gross_d_max) == 0.0:
         thresh_notices.append(
-            "desal benefit is identically zero under this parameter set (for example, unset sentinel inputs) - results reflect the remaining pathways only."
+            "desal benefit is identically zero under this parameter set "
+            "(for example, unset sentinel inputs) - results reflect the remaining pathways only."
         )
     if float(gross_sf_max) == 0.0:
         thresh_notices.append(
-            "solar_food benefit is identically zero under this parameter set (for example, unset sentinel inputs) - results reflect the remaining pathways only."
+            "solar_food benefit is identically zero under this parameter set "
+            "(for example, unset sentinel inputs) - results reflect the remaining pathways only."
         )
     thresh_notice = "; ".join(thresh_notices) if thresh_notices else None
 
@@ -365,7 +392,11 @@ def cmd_threshold(args: argparse.Namespace) -> int:
 
 def cmd_reproduce(args: argparse.Namespace) -> int:
     """Regenerate every output for each complete cost region/basis combination."""
-    cfg, params, root = load_config(Path(args.config)), load_parameters(args.parameters), Path(args.out_dir)
+    cfg, params, root = (
+        load_config(Path(args.config)),
+        load_parameters(args.parameters),
+        Path(args.out_dir),
+    )
     root.mkdir(parents=True, exist_ok=True)
     preferred = _scenario_dimensions(cfg, args)
     combinations = available_combinations(params)
@@ -374,7 +405,12 @@ def cmd_reproduce(args: argparse.Namespace) -> int:
     for region, basis in ordered:
         missing = missing_rows_for_combination(params, region, basis)
         if missing:
-            record = {"region": region, "basis": basis, "status": "skipped", "missing_rows": ", ".join(missing)}
+            record = {
+                "region": region,
+                "basis": basis,
+                "status": "skipped",
+                "missing_rows": ", ".join(missing),
+            }
             status_rows.append(record)
             skipped.append(record)
             continue

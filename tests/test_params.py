@@ -141,9 +141,21 @@ def test_validation_basis_matching(base_params):
 
     missing = missing_rows_for_combination(base_params, "us", "consumption")
     assert missing == [
-        "p_desal", "alpha_desal", "rho_desal", "L_desal", "R_desal", "D_desal",
-        "theta_desal", "p_solar_food", "alpha_solar_food", "rho_solar_food",
-        "L_solar_food", "R_solar_food", "phi_solar_food", "A_solar_food", "r_solar_food",
+        "p_desal",
+        "alpha_desal",
+        "rho_desal",
+        "L_desal",
+        "R_desal",
+        "D_desal",
+        "theta_desal",
+        "p_solar_food",
+        "alpha_solar_food",
+        "rho_solar_food",
+        "L_solar_food",
+        "R_solar_food",
+        "phi_solar_food",
+        "A_solar_food",
+        "r_solar_food",
     ]
 
 
@@ -164,13 +176,27 @@ def test_validation_strict_mode_rejects_unverified_inputs(base_params):
 
 
 def test_validation_domain_bounds(base_params):
-    """Enforce: alpha, p, phi, theta, r in [0, 1]; rho >= 0; L, R >= 0; W, A, D >= 0; g1 > -1, g2 > -1."""
+    """Enforce: alpha, p, phi, theta, r in [0, 1]; rho >= 0;
+    L, R >= 0; W, A, D >= 0; g1 > -1, g2 > -1.
+    """
     # phi > 1 rejected
     bad_phi = dict(base_params)
     p = bad_phi["phi_solar_food"]
     bad_phi["phi_solar_food"] = Parameter(
-        p.name, p.description, p.unit, p.basis, p.region, p.year, p.distribution,
-        0.1, 0.5, 1.2, p.source, p.locator, p.confidence, p.notes
+        p.name,
+        p.description,
+        p.unit,
+        p.basis,
+        p.region,
+        p.year,
+        p.distribution,
+        0.1,
+        0.5,
+        1.2,
+        p.source,
+        p.locator,
+        p.confidence,
+        p.notes,
     )
     with pytest.raises(ValueError, match="invalid domain/sign"):
         validate_parameters(bad_phi)
@@ -179,8 +205,20 @@ def test_validation_domain_bounds(base_params):
     bad_theta = dict(base_params)
     p = bad_theta["theta_desal"]
     bad_theta["theta_desal"] = Parameter(
-        p.name, p.description, p.unit, p.basis, p.region, p.year, p.distribution,
-        -0.05, 0.05, 0.15, p.source, p.locator, p.confidence, p.notes
+        p.name,
+        p.description,
+        p.unit,
+        p.basis,
+        p.region,
+        p.year,
+        p.distribution,
+        -0.05,
+        0.05,
+        0.15,
+        p.source,
+        p.locator,
+        p.confidence,
+        p.notes,
     )
     with pytest.raises(ValueError, match="invalid domain/sign"):
         validate_parameters(bad_theta)
@@ -189,8 +227,20 @@ def test_validation_domain_bounds(base_params):
     bad_r = dict(base_params)
     p = bad_r["r_solar_food"]
     bad_r["r_solar_food"] = Parameter(
-        p.name, p.description, p.unit, p.basis, p.region, p.year, p.distribution,
-        0.1, 0.5, 1.5, p.source, p.locator, p.confidence, p.notes
+        p.name,
+        p.description,
+        p.unit,
+        p.basis,
+        p.region,
+        p.year,
+        p.distribution,
+        0.1,
+        0.5,
+        1.5,
+        p.source,
+        p.locator,
+        p.confidence,
+        p.notes,
     )
     with pytest.raises(ValueError, match="invalid domain/sign"):
         validate_parameters(bad_r)
@@ -199,8 +249,20 @@ def test_validation_domain_bounds(base_params):
     high_rho = dict(base_params)
     p = high_rho["rho_desal"]
     high_rho["rho_desal"] = Parameter(
-        p.name, p.description, p.unit, p.basis, p.region, p.year, p.distribution,
-        1.2, 1.5, 2.0, p.source, p.locator, p.confidence, p.notes
+        p.name,
+        p.description,
+        p.unit,
+        p.basis,
+        p.region,
+        p.year,
+        p.distribution,
+        1.2,
+        1.5,
+        2.0,
+        p.source,
+        p.locator,
+        p.confidence,
+        p.notes,
     )
     validate_parameters(high_rho)
 
@@ -208,8 +270,20 @@ def test_validation_domain_bounds(base_params):
     bad_rho = dict(base_params)
     p = bad_rho["rho_desal"]
     bad_rho["rho_desal"] = Parameter(
-        p.name, p.description, p.unit, p.basis, p.region, p.year, p.distribution,
-        -0.1, 0.1, 0.3, p.source, p.locator, p.confidence, p.notes
+        p.name,
+        p.description,
+        p.unit,
+        p.basis,
+        p.region,
+        p.year,
+        p.distribution,
+        -0.1,
+        0.1,
+        0.3,
+        p.source,
+        p.locator,
+        p.confidence,
+        p.notes,
     )
     with pytest.raises(ValueError, match="invalid domain/sign"):
         validate_parameters(bad_rho)
@@ -218,8 +292,20 @@ def test_validation_domain_bounds(base_params):
     bad_g = dict(base_params)
     p = bad_g["g_global"]
     bad_g["g_global"] = Parameter(
-        p.name, p.description, p.unit, p.basis, p.region, p.year, p.distribution,
-        -1.0, 0.1, 0.25, p.source, p.locator, p.confidence, p.notes
+        p.name,
+        p.description,
+        p.unit,
+        p.basis,
+        p.region,
+        p.year,
+        p.distribution,
+        -1.0,
+        0.1,
+        0.25,
+        p.source,
+        p.locator,
+        p.confidence,
+        p.notes,
     )
     with pytest.raises(ValueError, match="invalid domain/sign"):
         validate_parameters(bad_g)
@@ -228,8 +314,20 @@ def test_validation_domain_bounds(base_params):
     bad_g2 = dict(base_params)
     p = bad_g2["g2_global"]
     bad_g2["g2_global"] = Parameter(
-        p.name, p.description, p.unit, p.basis, p.region, p.year, p.distribution,
-        -1.2, -0.5, 0.1, p.source, p.locator, p.confidence, p.notes
+        p.name,
+        p.description,
+        p.unit,
+        p.basis,
+        p.region,
+        p.year,
+        p.distribution,
+        -1.2,
+        -0.5,
+        0.1,
+        p.source,
+        p.locator,
+        p.confidence,
+        p.notes,
     )
     with pytest.raises(ValueError, match="invalid domain/sign"):
         validate_parameters(bad_g2)
@@ -238,7 +336,19 @@ def test_validation_domain_bounds(base_params):
     neg_g2 = dict(base_params)
     p = neg_g2["g2_global"]
     neg_g2["g2_global"] = Parameter(
-        p.name, p.description, p.unit, p.basis, p.region, p.year, p.distribution,
-        -0.5, -0.2, 0.1, p.source, p.locator, p.confidence, p.notes
+        p.name,
+        p.description,
+        p.unit,
+        p.basis,
+        p.region,
+        p.year,
+        p.distribution,
+        -0.5,
+        -0.2,
+        0.1,
+        p.source,
+        p.locator,
+        p.confidence,
+        p.notes,
     )
     validate_parameters(neg_g2)

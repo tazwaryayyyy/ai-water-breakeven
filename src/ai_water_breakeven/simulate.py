@@ -1,7 +1,7 @@
 """Vectorized Monte Carlo simulation, sensitivity analysis, and convergence checking."""
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, Tuple
 
 import numpy as np
 import pandas as pd
@@ -16,7 +16,12 @@ from ai_water_breakeven.model import (
     find_sustained_breakeven,
 )
 from ai_water_breakeven.params import Parameter, resolve_region_basis, select_scenario_parameters
-from ai_water_breakeven.sample import create_scenario_rng, sample_inverse_cdf, sample_parameter_matrix
+from ai_water_breakeven.sample import (
+    create_scenario_rng,
+    sample_inverse_cdf,
+    sample_parameter_matrix,
+)
+
 
 @dataclass
 class SimulationResults:
@@ -42,7 +47,7 @@ class SimulationResults:
     is_mixed_basis: bool
     deployments: Dict[str, np.ndarray] = None
     basis_notice: str | None = None
-    
+
     def __post_init__(self):
         if self.deployments is None:
             self.deployments = {}
@@ -65,7 +70,8 @@ def run_simulation(
     active, missing = select_scenario_parameters(params, scenario_region, scenario_basis)
     if missing:
         raise ValueError(
-            f"Missing rows for region={scenario_region}, basis={scenario_basis}: {', '.join(missing)}"
+            f"Missing rows for region={scenario_region}, basis={scenario_basis}: "
+            f"{', '.join(missing)}"
         )
     raw_samples, deployments = sample_parameter_matrix(
         list(active.values()), n_samples, create_scenario_rng(seed, scenario_idx)
@@ -126,19 +132,23 @@ def _evaluate_samples(
     )
     tot = bd + bf
     nb = calc_net_balance(tot, c)
-    cost_scope = "scope 1+2 combined" if scenario_region == "global" else (
-        "direct only" if k_switch == 0 else "direct + electricity"
+    cost_scope = (
+        "scope 1+2 combined"
+        if scenario_region == "global"
+        else ("direct only" if k_switch == 0 else "direct + electricity")
     )
     gross_d = s["D_desal"] * s["theta_desal"]
     gross_sf = s["phi_solar_food"] * s["A_solar_food"] * (1.0 - s["r_solar_food"])
     notices = []
     if float(np.max(gross_d)) == 0.0:
         notices.append(
-            "desal benefit is identically zero under this parameter set (for example, unset sentinel inputs) - results reflect the remaining pathways only."
+            "desal benefit is identically zero under this parameter set "
+            "(for example, unset sentinel inputs) - results reflect the remaining pathways only."
         )
     if float(np.max(gross_sf)) == 0.0:
         notices.append(
-            "solar_food benefit is identically zero under this parameter set (for example, unset sentinel inputs) - results reflect the remaining pathways only."
+            "solar_food benefit is identically zero under this parameter set "
+            "(for example, unset sentinel inputs) - results reflect the remaining pathways only."
         )
     basis_notice = "; ".join(notices) if notices else None
 
@@ -171,9 +181,10 @@ def _evaluate_samples(
 def _copy_draws(
     samples: Dict[str, np.ndarray], deployments: Dict[str, np.ndarray]
 ) -> tuple[Dict[str, np.ndarray], Dict[str, np.ndarray]]:
-    return ({name: values.copy() for name, values in samples.items()}, {
-        name: values.copy() for name, values in deployments.items()
-    })
+    return (
+        {name: values.copy() for name, values in samples.items()},
+        {name: values.copy() for name, values in deployments.items()},
+    )
 
 
 def _set_prefix(
@@ -319,20 +330,22 @@ def compute_threshold_map(
         raise ValueError(f"Missing rows for region={region}, basis={basis}: {', '.join(missing)}")
     role_by_name = {param.name: role for role, param in active.items()}
     if x_name not in role_by_name or y_name not in role_by_name:
-        raise ValueError("Threshold axes must be selected parameters for the requested region and basis")
+        raise ValueError(
+            "Threshold axes must be selected parameters for the requested region and basis"
+        )
     x_param, y_param = active[role_by_name[x_name]], active[role_by_name[y_name]]
-    
+
     # Determine x and y ranges
     if x_range is not None:
         x_lo, x_hi = x_range
     else:
         x_lo, x_hi = sample_inverse_cdf(x_param, np.array([0.05, 0.95]))
-    
+
     if y_range is not None:
         y_lo, y_hi = y_range
     else:
         y_lo, y_hi = sample_inverse_cdf(y_param, np.array([0.05, 0.95]))
-    
+
     # Generate grid values
     if log_spacing:
         x_values = np.geomspace(x_lo, x_hi, grid)
@@ -340,7 +353,7 @@ def compute_threshold_map(
     else:
         x_values = np.linspace(x_lo, x_hi, grid)
         y_values = np.linspace(y_lo, y_hi, grid)
-    
+
     base_samples, base_deployments = sample_parameter_matrix(
         list(active.values()), n_per_cell, create_scenario_rng(seed, 17)
     )
@@ -485,21 +498,21 @@ def compute_sourcing_priority(results: SimulationResults) -> pd.DataFrame:
     """Rank sampled inputs by absolute PRCC and retain traceable source metadata."""
     prcc = compute_prcc(results.sampled_params, results.final_net_balances)
     parameter_by_name = {p.name: p for p in results.active_parameters.values()}
-    
+
     # Compute correlation with break-even year (assign T+1 to "never")
     be_years_coded = np.where(np.isnan(results.be_years), results.t_horizon + 1, results.be_years)
-    
+
     # Build combined dict: sampled parameters + deployment draws
     all_inputs = dict(results.sampled_params)
     # Add deployment draws from results.deployments if available
     if results.deployments:
         for key, values in results.deployments.items():
             all_inputs[key] = values
-    
+
     # Compute PRCC-style correlation for all inputs against be_years_coded
     prcc_be = compute_prcc(all_inputs, be_years_coded)
     prcc_be_dict = {row["parameter"]: abs(row["prcc"]) for _, row in prcc_be.iterrows()}
-    
+
     rows = []
     for _, row in prcc.iterrows():
         parameter = parameter_by_name.get(row["parameter"])
@@ -528,7 +541,7 @@ def compute_sourcing_priority(results: SimulationResults) -> pd.DataFrame:
                 "dominance_warning": bool(abs_prcc > 0.85),
             }
         )
-    
+
     # Add deployment draw rows if available
     if results.deployments:
         for key in results.deployments.keys():
@@ -545,7 +558,7 @@ def compute_sourcing_priority(results: SimulationResults) -> pd.DataFrame:
                     "dominance_warning": False,
                 }
             )
-    
+
     if not rows:
         return pd.DataFrame(
             columns=[
@@ -560,7 +573,9 @@ def compute_sourcing_priority(results: SimulationResults) -> pd.DataFrame:
                 "dominance_warning",
             ]
         )
-    return pd.DataFrame(rows).sort_values("abs_corr_breakeven", ascending=False).reset_index(drop=True)
+    return (
+        pd.DataFrame(rows).sort_values("abs_corr_breakeven", ascending=False).reset_index(drop=True)
+    )
 
 
 def compute_tornado(
@@ -576,7 +591,8 @@ def compute_tornado(
     active, missing = select_scenario_parameters(params, scenario_region, scenario_basis)
     if missing:
         raise ValueError(
-            f"Missing rows for region={scenario_region}, basis={scenario_basis}: {', '.join(missing)}"
+            f"Missing rows for region={scenario_region}, basis={scenario_basis}: "
+            f"{', '.join(missing)}"
         )
     b_vals = {k: p.mode for k, p in active.items()}
     t = np.arange(1, t_horizon + 1)[np.newaxis, :]
@@ -649,14 +665,22 @@ def compute_conditions_table(
                 "failure_iqr": float(np.percentile(f, 75) - np.percentile(f, 25))
                 if len(f)
                 else np.nan,
-                f"success_median_by_{conditions_horizon}yr": float(np.median(s)) if len(s) else np.nan,
+                f"success_median_by_{conditions_horizon}yr": float(np.median(s))
+                if len(s)
+                else np.nan,
                 f"success_iqr_by_{conditions_horizon}yr": float(
                     np.percentile(s, 75) - np.percentile(s, 25)
-                ) if len(s) else np.nan,
-                f"failure_median_by_{conditions_horizon}yr": float(np.median(f)) if len(f) else np.nan,
+                )
+                if len(s)
+                else np.nan,
+                f"failure_median_by_{conditions_horizon}yr": float(np.median(f))
+                if len(f)
+                else np.nan,
                 f"failure_iqr_by_{conditions_horizon}yr": float(
                     np.percentile(f, 75) - np.percentile(f, 25)
-                ) if len(f) else np.nan,
+                )
+                if len(f)
+                else np.nan,
             }
         )
     return pd.DataFrame(rows)

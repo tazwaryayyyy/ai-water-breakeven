@@ -28,8 +28,10 @@ def calc_cost(
         g2 = np.zeros_like(g1)
     else:
         g2 = g2_or_t
-    return (w_dir + k * w_ind) * ((1.0 + g1) ** np.minimum(t, G1)) * (
-        (1.0 + g2) ** np.maximum(t - G1, 0)
+    return (
+        (w_dir + k * w_ind)
+        * ((1.0 + g1) ** np.minimum(t, G1))
+        * ((1.0 + g2) ** np.maximum(t - G1, 0))
     )
 
 

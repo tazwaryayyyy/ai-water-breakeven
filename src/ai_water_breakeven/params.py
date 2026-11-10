@@ -1,9 +1,9 @@
 """Parameter ingestion, unit conversion, and specification validation."""
 
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Tuple
-import warnings
 
 import pandas as pd
 
@@ -181,9 +181,11 @@ def validate_parameters(
         is_fraction = name.startswith(("alpha_", "p_", "phi_", "theta_", "r_"))
         is_nonnegative = name.startswith(("rho_", "L_", "R_", "W_", "A_", "D_", "G_"))
         is_growth = name.startswith(("g_", "g2_"))
-        if (is_fraction and (min(values) < 0 or max(values) > 1)) or (
-            is_nonnegative and min(values) < 0
-        ) or (is_growth and min(values) <= -1):
+        if (
+            (is_fraction and (min(values) < 0 or max(values) > 1))
+            or (is_nonnegative and min(values) < 0)
+            or (is_growth and min(values) <= -1)
+        ):
             errors.append(f"'{name}': invalid domain/sign")
 
     region, basis = resolve_region_basis(region, basis, cost_basis)
@@ -193,7 +195,8 @@ def validate_parameters(
         _, missing = select_scenario_parameters(params, region, basis)
         if missing:
             errors.append(
-                f"Basis mismatch: missing rows for region={region}, basis={basis}: {', '.join(missing)}"
+                f"Basis mismatch: missing rows for region={region}, basis={basis}: "
+                f"{', '.join(missing)}"
             )
 
     if strict:
