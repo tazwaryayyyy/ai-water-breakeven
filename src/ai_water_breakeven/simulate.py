@@ -40,7 +40,12 @@ class SimulationResults:
     active_parameters: Dict[str, Parameter]
     has_placeholder: bool
     is_mixed_basis: bool
+    deployments: Dict[str, np.ndarray] = None
     basis_notice: str | None = None
+    
+    def __post_init__(self):
+        if self.deployments is None:
+            self.deployments = {}
 
 
 def run_simulation(
@@ -158,6 +163,7 @@ def _evaluate_samples(
         active,
         any(p.is_placeholder_or_missing for p in active.values()),
         False,
+        deployments,
         basis_notice,
     )
 
@@ -485,15 +491,10 @@ def compute_sourcing_priority(results: SimulationResults) -> pd.DataFrame:
     
     # Build combined dict: sampled parameters + deployment draws
     all_inputs = dict(results.sampled_params)
-    # Add deployment draws as s_<pathway>
-    for pathway in ["desal", "solar_food"]:
-        key = f"s_{pathway}"
-        # Reconstruct from benefit trajectories: if any benefit > 0, deployment = 1
-        if pathway == "desal":
-            deployed = (np.sum(results.desal_benefits, axis=1) > 0).astype(float)
-        else:
-            deployed = (np.sum(results.solar_food_benefits, axis=1) > 0).astype(float)
-        all_inputs[key] = deployed
+    # Add deployment draws from results.deployments if available
+    if results.deployments:
+        for key, values in results.deployments.items():
+            all_inputs[key] = values
     
     # Compute PRCC-style correlation for all inputs against be_years_coded
     prcc_be = compute_prcc(all_inputs, be_years_coded)
@@ -528,22 +529,22 @@ def compute_sourcing_priority(results: SimulationResults) -> pd.DataFrame:
             }
         )
     
-    # Add deployment draw rows
-    for pathway in ["desal", "solar_food"]:
-        key = f"s_{pathway}"
-        rows.append(
-            {
-                "parameter": key,
-                "prcc": np.nan,
-                "abs_prcc": np.nan,
-                "abs_corr_breakeven": prcc_be_dict.get(key, np.nan),
-                "status": "deployment",
-                "confidence": "",
-                "source": "",
-                "rank_notice": "Ranks depend on the current input ranges and are provisional.",
-                "dominance_warning": False,
-            }
-        )
+    # Add deployment draw rows if available
+    if results.deployments:
+        for key in results.deployments.keys():
+            rows.append(
+                {
+                    "parameter": key,
+                    "prcc": np.nan,
+                    "abs_prcc": np.nan,
+                    "abs_corr_breakeven": prcc_be_dict.get(key, np.nan),
+                    "status": "deployment",
+                    "confidence": "",
+                    "source": "",
+                    "rank_notice": "Ranks depend on the current input ranges and are provisional.",
+                    "dominance_warning": False,
+                }
+            )
     
     if not rows:
         return pd.DataFrame(

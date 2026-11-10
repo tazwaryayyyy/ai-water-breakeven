@@ -245,6 +245,12 @@ def test_sourcing_priority_status_synthetic_rows():
     solar_food_benefits = rng.uniform(0, 1, (n, 10))
     be_years = rng.choice([5.0, 10.0, np.nan], size=n)
     
+    # Create deployment draws
+    deployments = {
+        "s_desal": rng.choice([0.0, 1.0], size=n),
+        "s_solar_food": rng.choice([0.0, 1.0], size=n),
+    }
+    
     results = SimulationResults(
         t_horizon=10,
         n_samples=n,
@@ -266,6 +272,7 @@ def test_sourcing_priority_status_synthetic_rows():
         active_parameters=params,
         has_placeholder=True,
         is_mixed_basis=False,
+        deployments=deployments,
     )
     df = compute_sourcing_priority(results)
     status_map = dict(zip(df["parameter"], df["status"]))
@@ -400,3 +407,37 @@ def test_threshold_default_unchanged(base_params):
     pd.testing.assert_frame_equal(table_default, table_explicit)
 
 
+
+
+
+def test_deployments_captured_with_zero_benefit():
+    """With A_solar_food fixed at 0 and p_solar_food fixed at 1, results.deployments['s_solar_food'] is all ones."""
+    n = 100
+    params = {
+        "W_direct_global": Parameter("W_direct_global", "", "m^3/yr", "withdrawal", "global", 2027, "fixed", 5.0e9, 5.0e9, 5.0e9, "S", "", "C", ""),
+        "W_indirect_global": Parameter("W_indirect_global", "", "m^3/yr", "withdrawal", "global", 2027, "fixed", 0.0, 0.0, 0.0, "S", "", "C", ""),
+        "g_global": Parameter("g_global", "", "dimensionless", "n/a", "global", 2027, "fixed", 0.0, 0.0, 0.0, "S", "", "C", ""),
+        "G_global": Parameter("G_global", "", "yr", "n/a", "global", 2027, "fixed", 5.0, 5.0, 5.0, "S", "", "C", ""),
+        "g2_global": Parameter("g2_global", "", "dimensionless", "n/a", "global", 2027, "fixed", 0.0, 0.0, 0.0, "S", "", "C", ""),
+        "p_desal": Parameter("p_desal", "", "dimensionless", "n/a", "global", 2027, "fixed", 0.5, 0.5, 0.5, "S", "", "C", ""),
+        "alpha_desal": Parameter("alpha_desal", "", "dimensionless", "n/a", "global", 2027, "fixed", 0.15, 0.15, 0.15, "S", "", "C", ""),
+        "rho_desal": Parameter("rho_desal", "", "dimensionless", "n/a", "global", 2027, "fixed", 0.0, 0.0, 0.0, "S", "", "C", ""),
+        "L_desal": Parameter("L_desal", "", "yr", "n/a", "global", 2027, "fixed", 0.0, 0.0, 0.0, "S", "", "C", ""),
+        "R_desal": Parameter("R_desal", "", "yr", "n/a", "global", 2027, "fixed", 0.0, 0.0, 0.0, "S", "", "C", ""),
+        "D_desal": Parameter("D_desal", "", "m^3/yr", "n/a", "global", 2027, "fixed", 1.0e10, 1.0e10, 1.0e10, "S", "", "C", ""),
+        "theta_desal": Parameter("theta_desal", "", "dimensionless", "n/a", "global", 2027, "fixed", 0.10, 0.10, 0.10, "S", "", "C", ""),
+        "p_solar_food": Parameter("p_solar_food", "", "dimensionless", "n/a", "global", 2027, "fixed", 1.0, 1.0, 1.0, "S", "", "C", ""),
+        "alpha_solar_food": Parameter("alpha_solar_food", "", "dimensionless", "n/a", "global", 2027, "fixed", 1.0, 1.0, 1.0, "S", "", "C", ""),
+        "rho_solar_food": Parameter("rho_solar_food", "", "dimensionless", "n/a", "global", 2027, "fixed", 0.0, 0.0, 0.0, "S", "", "C", ""),
+        "L_solar_food": Parameter("L_solar_food", "", "yr", "n/a", "global", 2027, "fixed", 0.0, 0.0, 0.0, "S", "", "C", ""),
+        "R_solar_food": Parameter("R_solar_food", "", "yr", "n/a", "global", 2027, "fixed", 0.0, 0.0, 0.0, "S", "", "C", ""),
+        "phi_solar_food": Parameter("phi_solar_food", "", "dimensionless", "n/a", "global", 2027, "fixed", 0.05, 0.05, 0.05, "S", "", "C", ""),
+        "A_solar_food": Parameter("A_solar_food", "", "m^3/yr", "withdrawal", "global", 2027, "fixed", 0.0, 0.0, 0.0, "S", "", "C", ""),
+        "r_solar_food": Parameter("r_solar_food", "", "dimensionless", "withdrawal", "global", 2027, "fixed", 0.0, 0.0, 0.0, "S", "", "C", ""),
+    }
+    
+    res = run_simulation(params, t_horizon=10, n_samples=n, seed=42)
+    
+    # Even though benefit is zero, deployment draw should be all ones (p=1.0)
+    assert "s_solar_food" in res.deployments
+    assert np.all(res.deployments["s_solar_food"] == 1.0)
