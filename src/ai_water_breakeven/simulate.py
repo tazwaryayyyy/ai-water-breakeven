@@ -1,6 +1,6 @@
-"""Vectorized Monte Carlo simulation, sensitivity analysis, and convergence checking."""
+"""Vectorized Monte Carlo simulation and sensitivity analysis."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, Tuple
 
 import numpy as np
@@ -45,12 +45,8 @@ class SimulationResults:
     active_parameters: Dict[str, Parameter]
     has_placeholder: bool
     is_mixed_basis: bool
-    deployments: Dict[str, np.ndarray] = None
+    deployments: Dict[str, np.ndarray] = field(default_factory=dict)
     basis_notice: str | None = None
-
-    def __post_init__(self):
-        if self.deployments is None:
-            self.deployments = {}
 
 
 def run_simulation(
@@ -335,7 +331,6 @@ def compute_threshold_map(
         )
     x_param, y_param = active[role_by_name[x_name]], active[role_by_name[y_name]]
 
-    # Determine x and y ranges
     if x_range is not None:
         x_lo, x_hi = x_range
     else:
@@ -346,7 +341,6 @@ def compute_threshold_map(
     else:
         y_lo, y_hi = sample_inverse_cdf(y_param, np.array([0.05, 0.95]))
 
-    # Generate grid values
     if log_spacing:
         x_values = np.geomspace(x_lo, x_hi, grid)
         y_values = np.geomspace(y_lo, y_hi, grid)
@@ -499,17 +493,14 @@ def compute_sourcing_priority(results: SimulationResults) -> pd.DataFrame:
     prcc = compute_prcc(results.sampled_params, results.final_net_balances)
     parameter_by_name = {p.name: p for p in results.active_parameters.values()}
 
-    # Compute correlation with break-even year (assign T+1 to "never")
+    # never is coded T+1 so earlier break-even ranks as better
     be_years_coded = np.where(np.isnan(results.be_years), results.t_horizon + 1, results.be_years)
 
-    # Build combined dict: sampled parameters + deployment draws
     all_inputs = dict(results.sampled_params)
-    # Add deployment draws from results.deployments if available
     if results.deployments:
         for key, values in results.deployments.items():
             all_inputs[key] = values
 
-    # Compute PRCC-style correlation for all inputs against be_years_coded
     prcc_be = compute_prcc(all_inputs, be_years_coded)
     prcc_be_dict = {row["parameter"]: abs(row["prcc"]) for _, row in prcc_be.iterrows()}
 
@@ -542,7 +533,6 @@ def compute_sourcing_priority(results: SimulationResults) -> pd.DataFrame:
             }
         )
 
-    # Add deployment draw rows if available
     if results.deployments:
         for key in results.deployments.keys():
             rows.append(
@@ -684,17 +674,3 @@ def compute_conditions_table(
             }
         )
     return pd.DataFrame(rows)
-
-
-def check_convergence(
-    params: Dict[str, Parameter], n_base: int = 10000, seed: int = 42
-) -> Tuple[bool, float, float]:
-    """Verify Monte Carlo convergence by comparing estimators at N versus 2N."""
-    r1, r2 = (
-        run_simulation(params, n_samples=n_base, seed=seed, scenario_idx=0),
-        run_simulation(params, n_samples=2 * n_base, seed=seed, scenario_idx=1),
-    )
-    p1, p2 = float(np.mean(r1.be_years <= 30.0)), float(np.mean(r2.be_years <= 30.0))
-    mcse = float(np.sqrt(p1 * (1.0 - p1) / n_base))
-    diff = abs(p1 - p2)
-    return diff <= max(3.0 * mcse, 1e-4), diff, mcse

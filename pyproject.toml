@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ai-water-breakeven"
 version = "0.1.0"
-description = "Monte Carlo break-even scenario model for AI water use and AI-enabled water benefits"
+description = "Monte Carlo scenario model for AI water use and AI-enabled water benefits (illustrative: most inputs are placeholders)"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
@@ -23,9 +23,6 @@ dependencies = [
 Repository = "https://github.com/tazwaryayyyy/ai-water-breakeven"
 
 [project.optional-dependencies]
-analysis = [
-    "scikit-learn>=1.3.0",
-]
 dev = [
     "pytest>=7.4.0",
     "ruff>=0.1.0",

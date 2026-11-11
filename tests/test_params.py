@@ -18,7 +18,6 @@ def base_params():
 
 def test_validation_rejects_bad_ordering(base_params):
     """Test 7a: Low > high and triangular ordering violations are rejected."""
-    # Triangular with mode < low
     bad_triang = dict(base_params)
     p = bad_triang["theta_desal"]
     bad_triang["theta_desal"] = Parameter(
@@ -40,7 +39,6 @@ def test_validation_rejects_bad_ordering(base_params):
     with pytest.raises(ValueError, match="triangular requires low <= mode <= high"):
         validate_parameters(bad_triang)
 
-    # Uniform with low > high
     bad_uniform = dict(base_params)
     p_u = bad_uniform["W_direct_global"]
     bad_uniform["W_direct_global"] = Parameter(
@@ -65,7 +63,6 @@ def test_validation_rejects_bad_ordering(base_params):
 
 def test_validation_rejects_illegal_negatives(base_params):
     """Test 7b: Illegal negative values for volume, probability, and lag are rejected."""
-    # Negative water volume
     bad_vol = dict(base_params)
     p_v = bad_vol["W_direct_global"]
     bad_vol["W_direct_global"] = Parameter(
@@ -87,7 +84,6 @@ def test_validation_rejects_illegal_negatives(base_params):
     with pytest.raises(ValueError, match="invalid domain/sign"):
         validate_parameters(bad_vol)
 
-    # Probability outside [0, 1]
     bad_prob = dict(base_params)
     p_p = bad_prob["p_desal"]
     bad_prob["p_desal"] = Parameter(
@@ -179,7 +175,6 @@ def test_validation_domain_bounds(base_params):
     """Enforce: alpha, p, phi, theta, r in [0, 1]; rho >= 0;
     L, R >= 0; W, A, D >= 0; g1 > -1, g2 > -1.
     """
-    # phi > 1 rejected
     bad_phi = dict(base_params)
     p = bad_phi["phi_solar_food"]
     bad_phi["phi_solar_food"] = Parameter(
@@ -201,7 +196,6 @@ def test_validation_domain_bounds(base_params):
     with pytest.raises(ValueError, match="invalid domain/sign"):
         validate_parameters(bad_phi)
 
-    # theta < 0 rejected
     bad_theta = dict(base_params)
     p = bad_theta["theta_desal"]
     bad_theta["theta_desal"] = Parameter(
@@ -223,7 +217,6 @@ def test_validation_domain_bounds(base_params):
     with pytest.raises(ValueError, match="invalid domain/sign"):
         validate_parameters(bad_theta)
 
-    # r > 1 rejected
     bad_r = dict(base_params)
     p = bad_r["r_solar_food"]
     bad_r["r_solar_food"] = Parameter(
@@ -266,7 +259,6 @@ def test_validation_domain_bounds(base_params):
     )
     validate_parameters(high_rho)
 
-    # rho < 0 rejected
     bad_rho = dict(base_params)
     p = bad_rho["rho_desal"]
     bad_rho["rho_desal"] = Parameter(
@@ -288,7 +280,6 @@ def test_validation_domain_bounds(base_params):
     with pytest.raises(ValueError, match="invalid domain/sign"):
         validate_parameters(bad_rho)
 
-    # g1 <= -1 rejected
     bad_g = dict(base_params)
     p = bad_g["g_global"]
     bad_g["g_global"] = Parameter(
@@ -310,7 +301,6 @@ def test_validation_domain_bounds(base_params):
     with pytest.raises(ValueError, match="invalid domain/sign"):
         validate_parameters(bad_g)
 
-    # g2 <= -1 rejected
     bad_g2 = dict(base_params)
     p = bad_g2["g2_global"]
     bad_g2["g2_global"] = Parameter(

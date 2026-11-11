@@ -29,13 +29,11 @@ def test_seed_determinism_and_mcse_agreement(base_params):
     """Test 5: Same seed gives identical output; different seeds agree within 3 MCSE."""
     n_runs = 8000
 
-    # Identical seed reproduction
     res_a = run_simulation(base_params, t_horizon=30, n_samples=n_runs, seed=42)
     res_b = run_simulation(base_params, t_horizon=30, n_samples=n_runs, seed=42)
     np.testing.assert_allclose(res_a.net_balance_trajectories, res_b.net_balance_trajectories)
     np.testing.assert_allclose(res_a.be_years, res_b.be_years, equal_nan=True)
 
-    # Different seeds agree within 3 MC standard errors
     res_c = run_simulation(base_params, t_horizon=30, n_samples=n_runs, seed=999)
     sm_a = compute_summary_metrics(res_a)
     sm_c = compute_summary_metrics(res_c)
@@ -56,7 +54,6 @@ def test_sampled_marginals_match_quantiles():
     n = 25000
     u = rng.uniform(0.0, 1.0, size=n)
 
-    # Uniform distribution: [100, 500]
     p_uni = Parameter(
         "x_u", "", "", "n/a", "", 2027, "uniform", 100.0, 300.0, 500.0, "P", "", "C", ""
     )
@@ -64,7 +61,6 @@ def test_sampled_marginals_match_quantiles():
     assert np.isclose(np.percentile(s_uni, 50), 300.0, rtol=0.03)
     assert np.isclose(np.percentile(s_uni, 25), 200.0, rtol=0.03)
 
-    # Lognormal distribution: p5=20.0, p95=200.0
     p_log = Parameter(
         "x_l", "", "", "n/a", "", 2027, "lognormal", 20.0, 63.2, 200.0, "P", "", "C", ""
     )
@@ -141,7 +137,6 @@ def test_conditions_table_success_count_matches_horizon_be_runs(base_params):
 
 def test_dominance_check_trips_on_wide_parameter_and_not_on_narrow(base_params):
     """Dominance warning trips when a parameter has |PRCC| > 0.85 and does not otherwise."""
-    # Calibrated run: no parameter has |PRCC| > 0.85
     res_cal = run_simulation(base_params, t_horizon=30, n_samples=3000, seed=42)
     df_cal = compute_sourcing_priority(res_cal)
     assert "dominance_warning" in df_cal.columns
@@ -177,7 +172,6 @@ def test_zero_ceiling_pathway_disclosure(base_params):
     """A synthetic parameter set with A fixed at 0 has 0 solar_food share
     and carries basis_notice; with A > 0 it does not.
     """
-    # Synthetic set with A fixed at 0
     p_zero = dict(base_params)
     p_a = p_zero["A_solar_food"]
     p_zero["A_solar_food"] = Parameter(
@@ -204,7 +198,6 @@ def test_zero_ceiling_pathway_disclosure(base_params):
     assert "solar_food benefit is identically zero" in sm_zero["basis_notice"]
     assert "results reflect the remaining pathways only" in sm_zero["basis_notice"]
 
-    # Parameter set with A > 0 (withdrawal baseline)
     res_pos = run_simulation(base_params, t_horizon=20, n_samples=500, seed=42)
     sm_pos = compute_summary_metrics(res_pos)
     assert "basis_notice" not in sm_pos or sm_pos.get("basis_notice") is None
@@ -307,7 +300,6 @@ def test_sourcing_priority_status_synthetic_rows():
     solar_food_benefits = rng.uniform(0, 1, (n, 10))
     be_years = rng.choice([5.0, 10.0, np.nan], size=n)
 
-    # Create deployment draws
     deployments = {
         "s_desal": rng.choice([0.0, 1.0], size=n),
         "s_solar_food": rng.choice([0.0, 1.0], size=n),
@@ -344,7 +336,6 @@ def test_sourcing_priority_status_synthetic_rows():
     assert status_map["p_placeholder"] == "PLACEHOLDER"
     assert status_map["p_missing"] == "MISSING"
 
-    # Check that deployment rows are present
     assert "s_desal" in df["parameter"].values
     assert "s_solar_food" in df["parameter"].values
 
@@ -355,7 +346,7 @@ def test_deployment_draw_determines_breakeven_correlation(synthetic_params):
     """
     n = 1000
 
-    # Synthetic set: desal always deployed and strong, solar_food deployment is critical
+    # Synthetic set: desal always deployed and strong, so solar_food deployment decides break-even
     params = synthetic_params(
         {
             "g_global": ("fixed", 0.0, 0.0, 0.0),
@@ -379,7 +370,6 @@ def test_deployment_draw_determines_breakeven_correlation(synthetic_params):
     res = run_simulation(params, t_horizon=30, n_samples=n, seed=42)
     df = compute_sourcing_priority(res)
 
-    # s_solar_food should have the highest abs_corr_breakeven
     top_param = df.iloc[0]["parameter"]
     assert top_param == "s_solar_food", f"Expected s_solar_food to be top, got {top_param}"
     assert df.iloc[0]["abs_corr_breakeven"] > 0.7
@@ -412,15 +402,12 @@ def test_threshold_with_log_spacing_and_range(synthetic_params):
     x_values = np.sort(table["x"].unique())
     y_values = np.sort(table["y"].unique())
 
-    # Check x range
     assert np.isclose(x_values[0], 0.001, rtol=0.01)
     assert np.isclose(x_values[-1], 0.5, rtol=0.01)
 
-    # Check y range
     assert np.isclose(y_values[0], 0.001, rtol=0.01)
     assert np.isclose(y_values[-1], 0.13, rtol=0.01)
 
-    # Check constant ratio (log spacing)
     x_ratios = x_values[1:] / x_values[:-1]
     assert np.allclose(x_ratios, x_ratios[0], rtol=0.01)
 
@@ -430,12 +417,10 @@ def test_threshold_with_log_spacing_and_range(synthetic_params):
 
 def test_threshold_default_unchanged(base_params):
     """Test (c): default threshold output is unchanged."""
-    # Run with default settings (no range, no log)
     table_default = compute_threshold_map(
         base_params, "g_global", "phi_solar_food", horizon=30, grid=3, n_per_cell=200, seed=42
     )
 
-    # Run with explicit None ranges and log_spacing=False
     table_explicit = compute_threshold_map(
         base_params,
         "g_global",
@@ -449,7 +434,6 @@ def test_threshold_default_unchanged(base_params):
         log_spacing=False,
     )
 
-    # Should be identical
     pd.testing.assert_frame_equal(table_default, table_explicit)
 
 

@@ -108,11 +108,9 @@ def test_cli_threshold(tmp_path):
 
 def test_placeholder_watermark_in_all_outputs_and_strict_fails(tmp_path):
     """Test 9: After non-strict run, every output file has placeholder mark; --strict fails."""
-    # 1. Strict mode fails
     strict_args = DummyArgs(out_dir=str(tmp_path / "strict_out"), strict=True)
     assert cmd_run(strict_args) == 1
 
-    # 2. Non-strict run produces placeholder watermark in every output
     out_dir = tmp_path / "ph_out"
     args = DummyArgs(out_dir=str(out_dir), samples=200, horizon=15)
     assert cmd_run(args) == 0

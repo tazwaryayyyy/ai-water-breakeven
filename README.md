@@ -16,10 +16,10 @@ cd ai-water-breakeven
 pip install -e .
 ```
 
-To install development dependencies (testing, linting, plotting):
+To install development dependencies (testing, linting):
 
 ```bash
-pip install -e ".[dev,analysis]"
+pip install -e ".[dev]"
 ```
 
 ### Run Simulation

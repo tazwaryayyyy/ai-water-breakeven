@@ -332,7 +332,6 @@ def cmd_threshold(args: argparse.Namespace) -> int:
     horizon = getattr(args, "horizon", None) or cfg.get("conditions_horizon", 30)
     grid, n_per_cell = getattr(args, "grid", 15), getattr(args, "n_per_cell", 5000)
 
-    # Extract range arguments
     x_range = getattr(args, "x_range", None)
     y_range = getattr(args, "y_range", None)
     log_spacing = getattr(args, "log", False)
@@ -454,14 +453,7 @@ def main() -> None:
         prog="ai-water-breakeven", description="Monte Carlo break-even model"
     )
     sub = p.add_subparsers(dest="command", required=True)
-    for name, fn in [
-        ("validate", cmd_validate),
-        ("run", cmd_run),
-        ("figures", cmd_figures),
-        ("knockouts", cmd_knockouts),
-        ("threshold", cmd_threshold),
-        ("reproduce", cmd_reproduce),
-    ]:
+    for name in ["validate", "run", "figures", "knockouts", "threshold", "reproduce"]:
         sp = sub.add_parser(name)
         sp.add_argument("--parameters", default="data/parameters.csv")
         sp.add_argument("--config", default="configs/base.toml")

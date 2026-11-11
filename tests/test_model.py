@@ -44,15 +44,12 @@ def _eval_single_pathway(
 
 def test_toy_case_exact_reproduction():
     """Toy case test 1: T=100, C=10/yr, g=0; Gross=30, R=0."""
-    # Base configuration gives break-even year 30
     be_base = _eval_single_pathway(t_max=100, lag_val=10.0, rho_val=0.5)
     assert be_base == 30.0
 
-    # L = 20 gives break-even year 60
     be_lag20 = _eval_single_pathway(t_max=100, lag_val=20.0, rho_val=0.5)
     assert be_lag20 == 60.0
 
-    # rho = 0 (with L = 10) gives break-even year 15
     be_rho0 = _eval_single_pathway(t_max=100, lag_val=10.0, rho_val=0.0)
     assert be_rho0 == 15.0
 
@@ -61,7 +58,6 @@ def test_zero_benefit_and_zero_cost_edges():
     """Test 2: Zero benefit gives 'never'; zero cost gives year 1."""
     t = np.arange(1, 51)
 
-    # Zero benefit with positive cost yields never
     c_pos = calc_cost(
         np.array([10.0]), np.array([0.0]), 0.0, np.array([0.0]), np.array([50.0]), t[np.newaxis, :]
     )
@@ -69,7 +65,6 @@ def test_zero_benefit_and_zero_cost_edges():
     nb_no_benefit = calc_net_balance(b_zero, c_pos)
     assert np.isnan(find_sustained_breakeven(nb_no_benefit)[0])
 
-    # Zero cost with non-negative benefit yields year 1
     c_zero = np.zeros_like(c_pos)
     b_pos = np.full_like(c_pos, 5.0)
     nb_zero_cost = calc_net_balance(b_pos, c_zero)
@@ -114,14 +109,13 @@ def test_monotonicity_on_grid():
 
 def test_gallons_to_m3_conversion_round_trip():
     """Test 4: Gallons to m^3 conversion and exact mathematical round trip."""
-    vol_gal = 17.4e9  # 17.4 billion gallons
+    vol_gal = 17.4e9
     vol_m3 = gallons_to_m3(vol_gal)
 
     assert vol_m3 == vol_gal * M3_PER_US_GALLON
     recovered_gal = m3_to_gallons(vol_m3)
     np.testing.assert_allclose(recovered_gal, vol_gal, rtol=1e-12)
 
-    # Array input round-trip
     arr_gal = np.array([1.0, 100.0, 1e6, 211e9])
     arr_m3 = gallons_to_m3(arr_gal)
     arr_rec = m3_to_gallons(arr_m3)
@@ -189,7 +183,6 @@ def test_g2_sustained_growth_bound():
     assert factor < 10.0
     assert np.isclose(factor, 8.9850078, rtol=1e-5)
 
-    # Directly verify in calc_cost over 45 years post-transition
     t = np.array([[years]])
     cost = calc_cost(
         np.array([100.0]),
