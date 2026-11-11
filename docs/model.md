@@ -134,6 +134,9 @@ Deployment is a single Bernoulli draw per pathway, so the break-even probability
 8. **Independent Sampling:** Inputs are sampled independently.
 9. **Sentinel Gross Benefits:** A `basis_notice` flags any pathway whose sampled gross benefit is identically zero; with the current inputs none is.
 10. **AI-System Footprint:** The water footprint of the AI-enabled systems themselves (sensors, inference) is not modeled beyond the pathway intensity $r$.
+11. **Deployment Bound:** Each pathway deploys or does not (one Bernoulli draw per run), so the break-even probability cannot exceed the probability that at least one pathway deploys. Use `conditional.csv` for results given deployment.
+12. **Desalination Supply:** Desalination adds supply and does not reduce consumption; on the consumption basis its contribution is a supply credit, separable with the `desal_only` and `solar_food_only` knockouts.
+13. **Timing Assumptions:** The solar-food lag and ramp (`L_solar_food`, `R_solar_food`) are assumptions informed by historical diffusion of energy technologies, which may not transfer to a food technology.
 
 ---
 

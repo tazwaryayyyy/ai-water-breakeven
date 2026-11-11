@@ -139,6 +139,11 @@ Common defaults are `--parameters data/parameters.csv`, `--config configs/base.t
 - **Independent Sampling:** Inputs are sampled independently (no correlation structure).
 - **No Discounting:** No discounting is applied.
 - **Attribution Shares:** Attribution shares (alpha) are modeling assumptions, not measurements.
+- **Deployment Bound:** Each pathway deploys or does not (one Bernoulli draw per run), so the break-even probability cannot exceed the probability that at least one pathway deploys; use `conditional.csv` for results given deployment.
+- **Desalination Supply:** Desalination adds supply and does not reduce consumption, so on the consumption basis its contribution is a supply credit, separable with the `desal_only` and `solar_food_only` knockouts.
+- **Timing Assumptions:** The solar-food lag and ramp (`L_solar_food`, `R_solar_food`) are assumptions informed by historical diffusion of energy technologies, which may not transfer to a food technology.
+
+Longer prose version for the paper: docs/limitations.md.
 
 ## Citation
 
