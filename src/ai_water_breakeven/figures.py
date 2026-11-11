@@ -86,21 +86,28 @@ def _save(
     plt.close(fig)
 
 
-def plot_breakeven_distribution(res: SimulationResults, out: Path) -> None:
+def plot_breakeven_distribution(
+    res: SimulationResults,
+    out: Path,
+    mask: np.ndarray | None = None,
+    label: str | None = None,
+) -> None:
+    be_years = res.be_years if mask is None else res.be_years[mask]
+    n = res.n_samples if mask is None else int(np.sum(mask))
     fig, ax = plt.subplots(figsize=(8, 4.5))
     counts, _ = np.histogram(
-        res.be_years[~np.isnan(res.be_years)], bins=np.arange(1, res.t_horizon + 2) - 0.5
+        be_years[~np.isnan(be_years)], bins=np.arange(1, res.t_horizon + 2) - 0.5
     )
     ax.bar(
         np.arange(1, res.t_horizon + 1),
-        counts / res.n_samples,
+        counts / n,
         width=0.8,
         color=CB_BLUE,
         label="Break-Even Year",
     )
     ax.bar(
         [res.t_horizon + 3],
-        [float(np.mean(np.isnan(res.be_years)))],
+        [float(np.mean(np.isnan(be_years)))],
         width=1.5,
         color=CB_GREY,
         label="Never",
@@ -108,10 +115,11 @@ def plot_breakeven_distribution(res: SimulationResults, out: Path) -> None:
     ticks = list(range(0, res.t_horizon + 1, 10)) + [res.t_horizon + 3]
     ax.set_xticks(ticks)
     ax.set_xticklabels([str(x) for x in ticks[:-1]] + ["Never"])
+    title = "Distribution of Sustained Break-Even Horizon"
     ax.set(
         xlabel="Sustained Break-Even Year (yr)",
         ylabel="Probability Share",
-        title="Distribution of Sustained Break-Even Horizon",
+        title=title if label is None else f"{title} ({label})",
     )
     ax.legend(frameon=False)
     _save(

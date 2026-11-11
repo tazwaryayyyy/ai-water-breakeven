@@ -3,6 +3,8 @@
 import json
 from pathlib import Path
 
+import pandas as pd
+
 from ai_water_breakeven.cli import (
     cmd_figures,
     cmd_knockouts,
@@ -71,6 +73,7 @@ def test_cli_figures_generation(tmp_path):
         "fig3_net_balance_fan",
         "fig4_tornado",
         "fig5_scope_comparison",
+        "fig8_breakeven_given_solar_food",
     ]:
         assert (p / f"{fig_name}.png").is_file()
         assert (p / f"{fig_name}.svg").is_file()
@@ -95,6 +98,27 @@ def test_cli_knockouts(tmp_path):
     args = DummyArgs(out_dir=out_dir, samples=200, horizon=15)
     assert cmd_knockouts(args) == 0
     assert (Path(out_dir) / "knockouts.csv").is_file()
+
+
+def test_cli_run_writes_conditional_csv(tmp_path):
+    """Run writes conditional.csv with one row per pathway and the placeholder notice."""
+    out_dir = str(tmp_path / "cond_out")
+    args = DummyArgs(out_dir=out_dir, samples=200, horizon=15)
+    assert cmd_run(args) == 0
+    df = pd.read_csv(Path(out_dir) / "conditional.csv")
+    assert list(df["pathway"]) == ["solar_food", "desal", "any"]
+    assert (df["publication_notice"] == "PLACEHOLDER INPUTS - NOT FOR PUBLICATION").all()
+
+
+def test_cli_figures_conditional_watermark(tmp_path):
+    """fig8 restricted to solar-food deployment carries the placeholder mark."""
+    out_dir = str(tmp_path / "fig8_out")
+    args = DummyArgs(out_dir=out_dir, samples=200, horizon=15)
+    assert cmd_figures(args) == 0
+    p = Path(out_dir)
+    assert (p / "fig8_breakeven_given_solar_food.png").is_file()
+    svg = (p / "fig8_breakeven_given_solar_food.svg").read_text(encoding="utf-8")
+    assert "PLACEHOLDER INPUTS - NOT FOR PUBLICATION" in svg
 
 
 def test_cli_threshold(tmp_path):

@@ -10,6 +10,7 @@ from ai_water_breakeven.params import Parameter, load_parameters
 from ai_water_breakeven.sample import sample_inverse_cdf, sample_parameter_matrix
 from ai_water_breakeven.simulate import (
     SimulationResults,
+    compute_conditional_table,
     compute_conditions_table,
     compute_sourcing_priority,
     compute_summary_metrics,
@@ -467,3 +468,92 @@ def test_deployments_captured_with_zero_benefit(synthetic_params):
     # Even though benefit is zero, deployment draw should be all ones (p=1.0)
     assert "s_solar_food" in res.deployments
     assert np.all(res.deployments["s_solar_food"] == 1.0)
+
+
+def _conditional_results(be_years, deployments, t_horizon=50):
+    n = len(be_years)
+    return SimulationResults(
+        t_horizon=t_horizon,
+        n_samples=n,
+        cost_basis="global_consumption",
+        region="global",
+        basis="consumption",
+        cost_scope="scope 1+2 combined",
+        k_switch=0.0,
+        time_steps=np.arange(1, t_horizon + 1),
+        net_balance_trajectories=np.zeros((n, t_horizon)),
+        be_years=np.asarray(be_years, dtype=float),
+        crossover_years=np.full(n, np.nan),
+        final_net_balances=np.zeros(n),
+        desal_benefits=np.zeros((n, t_horizon)),
+        solar_food_benefits=np.zeros((n, t_horizon)),
+        cost_trajectories=np.zeros((n, t_horizon)),
+        cost_at_zero=np.ones(n),
+        sampled_params={},
+        active_parameters={},
+        has_placeholder=True,
+        is_mixed_basis=False,
+        deployments=deployments,
+    )
+
+
+def test_conditional_table_hand_computed():
+    """Deployed solar-food runs are indices 0-3 with break-even years 5, 10, never, 20."""
+    res = _conditional_results(
+        [5, 10, np.nan, 20, 3, 4, 5, 6, 7, 8],
+        {"s_solar_food": np.array([1, 1, 1, 1, 0, 0, 0, 0, 0, 0], dtype=float)},
+    )
+    df = compute_conditional_table(res)
+    assert list(df["pathway"]) == ["solar_food", "desal", "any"]
+    row = df.set_index("pathway").loc["solar_food"]
+    assert row["n_deployed"] == 4
+    assert row["p_deploy"] == 0.4
+    assert row["count_yr10"] == 2
+    assert row["p_breakeven_yr10"] == 0.5
+    assert row["p_breakeven_yr20"] == 0.75
+    assert row["p_breakeven_yr30"] == 0.75
+    assert row["p_breakeven_yr50"] == 0.75
+    assert row["p_never"] == 0.25
+    assert row["be_year_median"] == 10.0
+    assert row["ci_low_yr10"] < row["p_breakeven_yr10"] < row["ci_high_yr10"]
+
+
+def test_conditional_table_any_uses_or():
+    """The any row deploys where either pathway draw is 1 (indices 0,1,2,3,5,6)."""
+    res = _conditional_results(
+        [5, 10, np.nan, 20, 3, 4, 5, 6, 7, 8],
+        {
+            "s_solar_food": np.array([1, 1, 1, 1, 0, 0, 0, 0, 0, 0], dtype=float),
+            "s_desal": np.array([0, 0, 0, 0, 0, 1, 1, 0, 0, 0], dtype=float),
+        },
+    )
+    df = compute_conditional_table(res).set_index("pathway")
+    row = df.loc["any"]
+    assert row["n_deployed"] == 6
+    assert row["p_deploy"] == 0.6
+    assert row["count_yr10"] == 4
+    assert row["p_breakeven_yr10"] == pytest.approx(4 / 6)
+    assert row["p_breakeven_yr20"] == pytest.approx(5 / 6)
+    assert row["p_never"] == pytest.approx(1 / 6)
+    assert row["be_year_median"] == 5.0
+    desal = df.loc["desal"]
+    assert desal["n_deployed"] == 2
+    assert desal["p_breakeven_yr10"] == 1.0
+    assert desal["be_year_median"] == 4.5
+
+
+def test_conditional_table_empty_deployments():
+    res = _conditional_results([5, np.nan], {})
+    df = compute_conditional_table(res)
+    assert df.empty
+    for column in [
+        "pathway",
+        "n_deployed",
+        "p_deploy",
+        "p_breakeven_yr10",
+        "p_never",
+        "be_year_median",
+        "be_year_p5",
+        "be_year_p95",
+    ]:
+        assert column in df.columns

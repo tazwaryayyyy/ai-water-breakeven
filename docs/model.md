@@ -118,6 +118,8 @@ Results are stated as "in X% of simulated scenarios under these inputs", never a
 
 Deployment is a single Bernoulli draw per pathway, so the break-even probability is bounded above by the probability that at least one pathway deploys; report the `success_1` knockout and the threshold map alongside it.
 
+`conditional.csv` reports, for solar_food, desal and any, the runs in which that pathway (or either) deploys: the deployment probability, the share of those runs with sustained break-even by each horizon (Wilson 95% intervals), the share that never break even within $T$, and the median and 5th to 95th percentile break-even year among those that do.
+
 ---
 
 ## Boundary Conditions and Methodological Limitations

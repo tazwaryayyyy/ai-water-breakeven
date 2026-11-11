@@ -303,6 +303,53 @@ def compute_knockout_table(results: Dict[str, SimulationResults]) -> pd.DataFram
     return pd.DataFrame(rows)
 
 
+def compute_conditional_table(
+    results: SimulationResults, horizons: Tuple[int, ...] = (10, 20, 30, 50)
+) -> pd.DataFrame:
+    """Break-even statistics restricted to runs in which a pathway deploys."""
+    active_horizons = [h for h in horizons if h <= results.t_horizon]
+    columns = ["pathway", "n_deployed", "p_deploy"]
+    for h in active_horizons:
+        columns += [f"p_breakeven_yr{h}", f"ci_low_yr{h}", f"ci_high_yr{h}", f"count_yr{h}"]
+    columns += ["p_never", "be_year_median", "be_year_p5", "be_year_p95"]
+    if not results.deployments:
+        return pd.DataFrame(columns=columns)
+
+    zeros = np.zeros(results.n_samples)
+    masks = {
+        pathway: results.deployments.get(f"s_{pathway}", zeros) == 1
+        for pathway in ("solar_food", "desal")
+    }
+    masks["any"] = masks["solar_food"] | masks["desal"]
+
+    rows = []
+    for pathway in ("solar_food", "desal", "any"):
+        be = results.be_years[masks[pathway]]
+        n_deployed = int(len(be))
+        row: Dict[str, Any] = {
+            "pathway": pathway,
+            "n_deployed": n_deployed,
+            "p_deploy": n_deployed / results.n_samples,
+        }
+        for h in active_horizons:
+            count = int(np.sum(be <= h))
+            row[f"count_yr{h}"] = count
+            if n_deployed:
+                row[f"p_breakeven_yr{h}"] = count / n_deployed
+                row[f"ci_low_yr{h}"], row[f"ci_high_yr{h}"] = wilson_interval(count, n_deployed)
+            else:
+                row[f"p_breakeven_yr{h}"] = np.nan
+                row[f"ci_low_yr{h}"] = np.nan
+                row[f"ci_high_yr{h}"] = np.nan
+        broke = be[~np.isnan(be)]
+        row["p_never"] = float(np.mean(np.isnan(be))) if n_deployed else np.nan
+        row["be_year_median"] = float(np.median(broke)) if len(broke) else np.nan
+        row["be_year_p5"] = float(np.percentile(broke, 5)) if len(broke) else np.nan
+        row["be_year_p95"] = float(np.percentile(broke, 95)) if len(broke) else np.nan
+        rows.append(row)
+    return pd.DataFrame(rows, columns=columns)
+
+
 def compute_threshold_map(
     params: Dict[str, Parameter],
     x_name: str,

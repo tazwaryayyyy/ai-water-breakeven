@@ -33,6 +33,7 @@ from ai_water_breakeven.params import (
     validate_parameters,
 )
 from ai_water_breakeven.simulate import (
+    compute_conditional_table,
     compute_conditions_table,
     compute_cost_trajectory,
     compute_knockout_table,
@@ -182,6 +183,10 @@ def cmd_run(args: argparse.Namespace) -> int:
     )
     sourcing_df = compute_sourcing_priority(res)
     _write_table(sourcing_df, out / "sourcing_priority.csv", res.has_placeholder)
+    conditional_df = compute_conditional_table(res)
+    if res.basis_notice:
+        conditional_df["basis_notice"] = res.basis_notice
+    _write_table(conditional_df, out / "conditional.csv", res.has_placeholder)
     json.dump(
         _metadata(cfg, Path(args.parameters), Path(args.config), res),
         open(out / "run_metadata.json", "w", encoding="utf-8"),
@@ -261,6 +266,12 @@ def cmd_figures(args: argparse.Namespace) -> int:
         basis_notice=r0.basis_notice,
     )
     plot_scope_comparison(r0, r1, out / "fig5_scope_comparison")
+    plot_breakeven_distribution(
+        r0,
+        out / "fig8_breakeven_given_solar_food",
+        mask=r0.deployments["s_solar_food"] == 1,
+        label="given solar-food deployment",
+    )
     print(f"Figures written to {out}")
     return 0
 
