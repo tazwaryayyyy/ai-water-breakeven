@@ -1,6 +1,8 @@
 # AI Water Break-Even
 
-Monte Carlo simulation model evaluating whether counterfactual water savings from AI-enabled technologies (desalination optimization, agricultural displacement) can offset the operational water consumption and withdrawal of global AI compute infrastructure.
+Monte Carlo scenario model of the conditions under which water benefits attributed to AI would offset the water used by AI compute. The two benefit pathways are desalination, where cost and energy gains add supply, and solar-driven food production that displaces crop water use.
+
+Equations, definitions and limitations: docs/model.md.
 
 > Status: most inputs are PLACEHOLDER or MISSING in `data/parameters.csv`. Outputs are illustrative, not findings. Do not cite them. Sourced: the global AI water baseline (Li et al. 2025) and the agricultural blue-water baseline A on the consumption basis. Assumptions informed by sources, not measured rates: `g_global`, `G_global`, `g2_global`, `phi_solar_food` and `r_solar_food_consumption`. Deployment probabilities, attribution shares, rebound, lags and all desalination inputs are placeholders.
 
@@ -64,9 +66,9 @@ $$C(t) = (W_{\text{direct}} + k \cdot W_{\text{indirect}}) \cdot (1 + g_1)^{\min
 
 - $W_{\text{direct}}$: Direct operational water volume (m³/yr). For global scenarios, direct rows represent combined Scope 1 (on-site cooling) and Scope 2 (grid electricity) from Li et al. (2025).
 - $k \in [0, 1]$: Scope switch for indirect electricity water (applies to US scenarios with separated accounting; $W_{\text{indirect}} = 0$ for global).
-- $g_1 \sim \text{Triangular}(0.10, 0.20, 0.30)$: Phase 1 annual growth rate (informed by IEA 2025 and data center power projections).
-- $G_1 \sim \text{Triangular}(1.0, 3.0, 8.0)$: Phase 1 duration in years.
-- $g_2 \sim \text{Triangular}(-0.02, 0.02, 0.05)$: Phase 2 long-term annual growth rate.
+- $g_1$: Phase 1 annual growth rate (informed by IEA 2025 and data center power projections). Range in `data/parameters.csv`.
+- $G_1$: Phase 1 duration in years. Range in `data/parameters.csv`.
+- $g_2$: Phase 2 long-term annual growth rate. Range in `data/parameters.csv`.
 
 ### Technology Benefit Pathways
 
@@ -78,13 +80,13 @@ $$B_i(t) = s_i \cdot \alpha_i \cdot \text{Gross}_i \cdot \text{ramp}_i(t) \cdot 
 - $\alpha_i \in [0, 1]$: Fractional credit attributed to AI.
 - $\rho_i \ge 0$: Rebound effect consumption fraction.
 - $\text{ramp}_i(t)$: Piecewise linear adoption ramp starting after lag $L_i$ and taking $R_i$ years to reach full deployment.
-- $\text{Gross}_{\text{desal}} = D \cdot \theta$: Global desalination volume $D$ multiplied by AI fractional efficiency gain $\theta$.
-- $\text{Gross}_{\text{solar food}} = \phi \cdot A \cdot (1 - r)$: Baseline agricultural freshwater $A$ displaced by fraction $\phi$, adjusted for synthetic food water intensity $r$.
+- Desalination: gross benefit $D$ times $\theta$, where $D$ is global desalinated output (m3/yr) and $\theta$ is the fractional increase in that output from cost and energy improvements, from all causes. The AI share of the benefit is applied separately through $\alpha$. Desalination adds supply; it does not reduce consumption.
+- Solar food: gross benefit $\phi$ times $A$ times $(1 - r)$, where $A$ is baseline agricultural water use on the chosen basis (crop blue-water consumption, or irrigation withdrawal), $\phi$ is the share of $A$ displaced, and $r$ is the water intensity of the solar-driven food system relative to conventional production (0 = none, 1 = equal).
 
 ## Accounting Rules and Scope Safeguards
 
 1. **Physical Basis Consistency:**
-   - `withdrawal`: Total volume extracted from water sources. Both desalination and agricultural displacement are active.
+   - `withdrawal`: Total volume extracted from water sources.
    - `consumption`: Volume evaporated or permanently incorporated into products. If a pathway's sampled gross benefit is identically zero (for example, an unset sentinel input), the model detects it and outputs a `basis_notice`; with the current inputs no pathway is zero.
    - Mixing withdrawal and consumption within a single scenario is disallowed by default.
 
@@ -93,7 +95,7 @@ $$B_i(t) = s_i \cdot \alpha_i \cdot \text{Gross}_i \cdot \text{ramp}_i(t) \cdot 
    - `us`: Reserved and non-runnable. US data center consumption parameters are included in `data/parameters.csv` (17.4B gallons direct, 211B gallons indirect electricity for 2023, LBNL-2001637), but US-specific benefit pathways are not cataloged. Comparing US costs against global benefits is blocked during validation.
 
 3. **Dominance Auditing:**
-   - During sensitivity analysis, any parameter with absolute Partial Rank Correlation Coefficient $|PRCC| > 0.85$ trips a `dominance_warning` in `sourcing_priority.csv` and triggers a console warning during `cmd_run`.
+   - During sensitivity analysis, any parameter with absolute Partial Rank Correlation Coefficient $|PRCC| > 0.85$ trips a `dominance_warning` in `sourcing_priority.csv` and triggers a console warning during `ai-water-breakeven run`.
 
 ## CLI Reference
 
@@ -114,13 +116,17 @@ Common defaults are `--parameters data/parameters.csv`, `--config configs/base.t
 | :--- | :--- |
 | `summary.json` / `.csv` | Horizon break-even probabilities, Wilson confidence intervals, MCSE, $N(T)$ quantiles, benefit shares, and notice disclosures. |
 | `prcc.csv` | Partial Rank Correlation Coefficients of continuous parameters against cumulative net balance $N(T)$. |
+| `tornado.csv` | One-at-a-time low/high sensitivity of the final net balance $N(T)$, ranked by swing. |
 | `sourcing_priority.csv` | Parameters ranked by absolute PRCC with source traceability, confidence tiers, and dominance warnings. |
-| `conditions.csv` | Parameter medians and IQRs stratified by runs achieving sustained break-even by year 30. |
+| `conditions.csv` | Parameter medians and IQRs stratified by runs achieving sustained break-even by the configured conditions_horizon (default 30). |
 | `cost_trajectory.csv` | Cost percentiles $C(t)$ and compounding ratios $C(t)/C(0)$ at benchmark years (5, 10, 25, 50). |
 | `net_balance_by_horizon.csv` | Cumulative balance $N(t)$ percentiles across comparison horizons. |
 | `knockouts.csv` | Break-even probabilities across deterministic knockout scenarios. |
 | `threshold_map.csv` | Grid of break-even probabilities across two chosen parameter ranges. |
 | `run_metadata.json` | Execution metadata including git commit hash, timestamp, Python version, random seed, and parameter SHA-256 hashes. |
+| `reproduce_status.csv` | Per region/basis combination: ran or skipped, with missing rows for skipped combinations. |
+| `reproduce_manifest.json` | Ran and skipped combinations with their output directories and the publication notice. |
+| `fig1_breakeven_dist`, `fig2_p_breakeven_horizon`, `fig3_net_balance_fan`, `fig4_tornado`, `fig5_scope_comparison`, `fig6_knockouts`, `fig7_threshold_map` (`.png` and `.svg`) | Break-even year distribution; break-even probability by horizon; net balance fan chart; one-at-a-time tornado; scope comparison ($k = 0$ vs $k = 1$); knockout probabilities; two-parameter threshold map. |
 
 ## Limitations
 
@@ -128,7 +134,7 @@ Common defaults are `--parameters data/parameters.csv`, `--config configs/base.t
 - **Unweighted Scarcity:** All cubic meters are treated equally regardless of local aquifer depletion or regional water stress indices.
 - **Scope 3 Excluded:** Embodied water from semiconductor manufacturing, hardware supply chains, and facility construction is omitted.
 - **Post-2035 Uncertainty:** Growth trajectories past 2035 have no empirical backing and serve as exploratory scenario bounds.
-- **Static Baselines:** Global agricultural water demand ($A$) and desalination capacity ($D$) are held static without dynamic climate or demographic feedback.
+- **Static Baselines:** Global agricultural water demand ($A$) and desalinated output ($D$) are held static without dynamic climate or demographic feedback.
 - **Independent Sampling:** Inputs are sampled independently (no correlation structure).
 - **No Discounting:** No discounting is applied.
 - **Attribution Shares:** Attribution shares (alpha) are modeling assumptions, not measurements.
