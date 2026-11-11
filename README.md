@@ -2,7 +2,7 @@
 
 Monte Carlo scenario model of the conditions under which water benefits attributed to AI would offset the water used by AI compute. The two benefit pathways are desalination, where cost and energy gains add supply, and solar-driven food production that displaces crop water use.
 
-Equations, definitions and limitations: docs/model.md.
+Equations, definitions and limitations: [docs/model.md](docs/model.md).
 
 > Status: most inputs are PLACEHOLDER or MISSING in `data/parameters.csv`. Outputs are illustrative, not findings. Do not cite them. Sourced: the global AI water baseline (Li et al. 2025) and the agricultural blue-water baseline `A` on the consumption basis. Assumptions informed by sources, not measured rates: `g_global`, `G_global`, `g2_global`, `phi_solar_food`, `r_solar_food_consumption`, `L_solar_food` and `R_solar_food`. Deployment probabilities, attribution shares, rebound and all desalination inputs are placeholders.
 
@@ -122,7 +122,7 @@ Common defaults are `--parameters data/parameters.csv`, `--config configs/base.t
 | `cost_trajectory.csv` | Cost percentiles $C(t)$ and compounding ratios $C(t)/C(0)$ at benchmark years (5, 10, 25, 50). |
 | `net_balance_by_horizon.csv` | Cumulative balance $N(t)$ percentiles across comparison horizons. |
 | `knockouts.csv` | Break-even probabilities across deterministic knockout scenarios. |
-| `conditional.csv` | Break-even probabilities with Wilson intervals, never-share, and break-even year percentiles among runs where solar_food, desal, or either pathway deploys. |
+| `conditional.csv` | Break-even probabilities with Wilson intervals, never-share, and break-even year percentiles among runs where solar_food, desal, or either pathway deploys. Rows do not isolate a pathway's contribution (see docs/model.md). |
 | `threshold_map.csv` | Grid of break-even probabilities across two chosen parameter ranges. |
 | `run_metadata.json` | Execution metadata including git commit hash, timestamp, Python version, random seed, and parameter SHA-256 hashes. |
 | `reproduce_status.csv` | Per region/basis combination: ran or skipped, with missing rows for skipped combinations. |
@@ -143,7 +143,7 @@ Common defaults are `--parameters data/parameters.csv`, `--config configs/base.t
 - **Desalination Supply:** Desalination adds supply and does not reduce consumption, so on the consumption basis its contribution is a supply credit, separable with the `desal_only` and `solar_food_only` knockouts.
 - **Timing Assumptions:** The solar-food lag and ramp (`L_solar_food`, `R_solar_food`) are assumptions informed by historical diffusion of energy technologies, which may not transfer to a food technology.
 
-Longer prose version for the paper: docs/limitations.md.
+Longer prose version for the paper: [docs/limitations.md](docs/limitations.md).
 
 ## Citation
 

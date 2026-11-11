@@ -57,7 +57,7 @@ where:
 - $\rho_i \ge 0$: Rebound effect factor (additional water consumption induced by lower technology costs or efficiency gains).
 
 ### Gross Pathway Potentials
-1. **Desalination Output & Efficiency Gains:**
+1. **Desalination Output:**
    $$\text{Gross}_{\text{desal}} = D \cdot \theta$$
    where $D$ is global desalinated output (m³/yr) and $\theta$ is the fractional increase in that output from cost and energy improvements, from all causes. The AI share of the benefit is applied separately through $\alpha$. Desalination adds supply; it does not reduce consumption.
 
@@ -119,6 +119,8 @@ Results are stated as "in X% of simulated scenarios under these inputs", never a
 Deployment is a single Bernoulli draw per pathway, so the break-even probability is bounded above by the probability that at least one pathway deploys; report the `success_1` knockout and the threshold map alongside it.
 
 `conditional.csv` reports, for solar_food, desal and any, the runs in which that pathway (or either) deploys: the deployment probability, the share of those runs with sustained break-even by each horizon (Wilson 95% intervals), the share that never break even within $T$, and the median and 5th to 95th percentile break-even year among those that do.
+
+Each conditional row conditions on that pathway (or either) deploying. The other pathway deploys independently, so a row does not isolate that pathway's contribution; use the `desal_only` and `solar_food_only` knockouts for isolated contributions.
 
 ---
 

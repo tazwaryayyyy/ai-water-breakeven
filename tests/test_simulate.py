@@ -296,7 +296,7 @@ def test_sourcing_priority_status_synthetic_rows():
     sampled = {k: rng.uniform(0.1, 0.3, n) for k in params}
     y = rng.normal(0, 1, n)
 
-    # Create varied benefit trajectories and break-even years so correlation computation works
+    # PRCC drops constant inputs and is undefined for a constant target, so draws must vary
     desal_benefits = rng.uniform(0, 1, (n, 10))
     solar_food_benefits = rng.uniform(0, 1, (n, 10))
     be_years = rng.choice([5.0, 10.0, np.nan], size=n)
