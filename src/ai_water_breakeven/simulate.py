@@ -441,6 +441,9 @@ def compute_prcc(sampled_params: Dict[str, np.ndarray], y_target: np.ndarray) ->
     keys = [k for k in sampled_params.keys() if np.std(sampled_params[k]) > 1e-12]
     if not keys:
         return pd.DataFrame(columns=["parameter", "prcc"])
+    if np.std(y_target) <= 1e-12:
+        # Correlation with a constant target is undefined (e.g. every run never breaks even).
+        return pd.DataFrame({"parameter": keys, "prcc": np.nan})
     cols = [rankdata(sampled_params[k]) for k in keys] + [rankdata(y_target)]
     corr = np.corrcoef(np.column_stack(cols), rowvar=False) + np.eye(len(cols)) * 1e-12
     prec = np.linalg.pinv(corr)

@@ -4,7 +4,7 @@ Monte Carlo scenario model of the conditions under which water benefits attribut
 
 Equations, definitions and limitations: docs/model.md.
 
-> Status: most inputs are PLACEHOLDER or MISSING in `data/parameters.csv`. Outputs are illustrative, not findings. Do not cite them. Sourced: the global AI water baseline (Li et al. 2025) and the agricultural blue-water baseline A on the consumption basis. Assumptions informed by sources, not measured rates: `g_global`, `G_global`, `g2_global`, `phi_solar_food` and `r_solar_food_consumption`. Deployment probabilities, attribution shares, rebound, lags and all desalination inputs are placeholders.
+> Status: most inputs are PLACEHOLDER or MISSING in `data/parameters.csv`. Outputs are illustrative, not findings. Do not cite them. Sourced: the global AI water baseline (Li et al. 2025) and the agricultural blue-water baseline `A` on the consumption basis. Assumptions informed by sources, not measured rates: `g_global`, `G_global`, `g2_global`, `phi_solar_food`, `r_solar_food_consumption`, `L_solar_food` and `R_solar_food`. Deployment probabilities, attribution shares, rebound and all desalination inputs are placeholders.
 
 ## Quickstart
 
