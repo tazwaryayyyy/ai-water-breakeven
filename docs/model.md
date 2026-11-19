@@ -21,6 +21,8 @@ In the global scenario configuration, baseline values from Li et al. (2025) comb
 - **`region = "global"` (Runnable):** Evaluates combined global Scope 1+2 compute footprints against global desalinated output and agricultural displacement potential.
 - **`region = "us"` (Reserved / Non-runnable):** US data center water parameters are recorded in `data/parameters.csv` for reference (17.4 billion gallons direct, 211 billion gallons indirect electricity consumption for 2023, based on LBNL-2001637). However, benefit pathways are not parameterized at the US scale. Pairing US costs with global benefits produces an invalid comparison and is blocked during parameter validation.
 
+The default configuration (`configs/base.toml`) selects `region = "global"` and `basis = "withdrawal"`. On the withdrawal basis the agricultural denominator rows (`A_solar_food`, `r_solar_food`) carry MISSING sources; the consumption-basis counterparts (`A_solar_food_consumption`, `r_solar_food_consumption`) are sourced. Consumption-basis analyses are run with `--region global --basis consumption`.
+
 ---
 
 ## Governing Equations
@@ -93,6 +95,12 @@ The `sourcing_priority.csv` table includes two sensitivity columns and one deplo
 - `abs_corr_breakeven`: Absolute partial rank correlation of each sampled continuous parameter and realized deployment draw against the sustained break-even year, with "never" coded as $T+1$.
 - `abs_prcc`: Absolute partial rank correlation of each sampled continuous parameter against the cumulative net balance $N(T)$.
 - `s_<pathway>` rows: Realized Bernoulli deployment draws whose break-even correlations are reported in `abs_corr_breakeven`, with `prcc` and `abs_prcc` left empty because the dominance check applies only to continuous parameters.
+- `abs_corr_breakeven_given_solar_food`: Absolute partial rank correlation against the sustained break-even year restricted to runs where solar food deployed (`s_solar_food = 1`), excluding `p_solar_food` and its draw from the inputs. Empty when no deployment draws exist, fewer than three runs deployed, or the correlation is undefined.
+- `breakeven_dominance_warning`: True when `abs_corr_breakeven` > 0.85, including deployment-draw rows. The separate `dominance_warning` applies only to continuous-parameter PRCC.
+- `rank_notice`: Ranks depend on the current input ranges and are provisional. Pooled break-even correlations of the deployment probabilities `p_*` are mediated (attenuated) by their Bernoulli draws `s_*`; consult `abs_corr_breakeven_given_solar_food` for timing among deployed runs.
+
+### One-at-a-Time Tornado
+`tornado.csv` perturbs each continuous parameter to its low and high bound while all others sit at a deterministic baseline: the arithmetic midpoint $(low + high)/2$ for uniform inputs, the geometric median $\sqrt{low \cdot high}$ for lognormal inputs, and the mode for triangular or fixed inputs. Deployment probabilities enter the baseline deterministically (as expected-value multipliers, with no Bernoulli draws), so the swings isolate parameter sensitivity from deployment luck. Rows are ranked by the larger absolute swing in $N(T)$.
 
 ### Common-Random-Number (CRN) Knockouts
 To isolate structural drivers without Monte Carlo sampling variance, knockout scenarios reuse identical pseudo-random draws from the baseline run while selectively overriding target parameter subsets:
@@ -105,10 +113,14 @@ To isolate structural drivers without Monte Carlo sampling variance, knockout sc
 - `solar_food_only`: Only the solar-food pathway can deploy (`p_desal = 0`).
 - `ceiling`: Attribution $\alpha_i = 1.0$, all deployment probabilities $p_i = 1.0$ with realized deployments forced to 1, rebound $\rho_i = 0$; lags, ramps and cost growth unchanged.
 
+For horizons below 10 years no `p_breakeven_yr*` columns exist; `fig6_knockouts` then plots `p_never` (the share of runs with no sustained break-even within $T$) with its Wilson interval instead.
+
 ### Break-Even Threshold Surface
 A 2D threshold grid spans the 5th to 95th percentiles of two selected continuous parameters across $G \times G$ cells. For each cell, the break-even probability is computed over shared base draws of all remaining parameters, showing where the break-even probability changes.
 
-Threshold analysis supports optional range overrides (`--x-range LO HI`, `--y-range LO HI`) and log-spacing (`--log`) for grids spanning multiple orders of magnitude. Axis labels and the x and y columns of `threshold_map.csv` reflect the range actually used.
+Threshold analysis supports optional range overrides (`--x-range LO HI`, `--y-range LO HI`) and log-spacing (`--log`) for grids spanning multiple orders of magnitude. Axis labels and the x and y columns of `threshold_map.csv` reflect the range actually used. With `--log`, both figure axes use log scales and all range bounds must be strictly positive.
+
+Optional conditioning (`--conditional {none,solar_food,desal,both}`) forces the chosen pathway(s) to deploy in every cell, reporting thresholds conditional on deployment; the default `none` leaves deployment draws untouched. Optional `--eval-horizon H` (with $H \ge$ `--horizon`) evaluates trajectories over $H$ years while still counting break-even by `--horizon`, exposing late-horizon reversals that a shorter evaluation would miss. Choosing a deployment probability (`p_desal` or `p_solar_food`) as an axis emits a warning: the shared Bernoulli deployment draws are not re-drawn for the overridden probabilities, so the surface mixes the probability override with the original draws.
 
 ---
 

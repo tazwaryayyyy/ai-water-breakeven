@@ -89,6 +89,7 @@ $$B_i(t) = s_i \cdot \alpha_i \cdot \text{Gross}_i \cdot \text{ramp}_i(t) \cdot 
    - `withdrawal`: Total volume extracted from water sources.
    - `consumption`: Volume evaporated or permanently incorporated into products. If a pathway's sampled gross benefit is identically zero (for example, an unset sentinel input), the model detects it and outputs a `basis_notice`; with the current inputs no pathway is zero.
    - Mixing withdrawal and consumption within a single scenario is disallowed by default.
+   - The default config (`configs/base.toml`) selects `global` + `withdrawal`, where the agricultural denominator rows (`A_solar_food`, `r_solar_food`) are MISSING; the sourced consumption-basis analysis uses `--region global --basis consumption`.
 
 2. **Regional Scopes:**
    - `global`: Fully runnable. Combines Scope 1 and Scope 2 operational water from Li et al. (2025) with global efficiency pathways.
@@ -96,18 +97,19 @@ $$B_i(t) = s_i \cdot \alpha_i \cdot \text{Gross}_i \cdot \text{ramp}_i(t) \cdot 
 
 3. **Dominance Auditing:**
    - During sensitivity analysis, any parameter with absolute Partial Rank Correlation Coefficient $|PRCC| > 0.85$ trips a `dominance_warning` in `sourcing_priority.csv` and triggers a console warning during `ai-water-breakeven run`.
+   - `breakeven_dominance_warning` separately flags any row (including deployment draws) whose absolute break-even correlation exceeds 0.85; pooled `p_*` correlations are mediated by the deployment draws, so consult `abs_corr_breakeven_given_solar_food` for timing among deployed runs.
 
 ## CLI Reference
 
-Common defaults are `--parameters data/parameters.csv`, `--config configs/base.toml`, `--region None` and `--basis None` (the config selects `global` and `withdrawal`), and false `--strict` and `--allow-mixed-basis`. For `--samples` and run `--horizon`, `None` selects the config values `N = 100000` and `T = 50`.
+Common defaults are `--parameters data/parameters.csv`, `--config configs/base.toml`, `--region None` and `--basis None` (the config selects `global` and `withdrawal`), and false `--strict` and `--allow-mixed-basis`. For `--samples` and the run/figures/knockouts/reproduce `--horizon`, `None` selects the config values `N = 100000` and `T = 50`. For `threshold`, `--samples` is ignored (cell size is set by `--n-per-cell`); passing it prints a notice to stderr.
 
 | Command | Flags | Defaults | Description |
 | :--- | :--- | :--- | :--- |
 | `validate` | `[--parameters PARAMETERS] [--config CONFIG] [--strict] [--allow-mixed-basis] [--region {global,us}] [--basis {withdrawal,consumption}]` | Common defaults. | Checks parameter schema bounds, physical basis consistency, and unverified source flags. |
 | `run` | `[--parameters PARAMETERS] [--config CONFIG] [--strict] [--allow-mixed-basis] [--region {global,us}] [--basis {withdrawal,consumption}] [--out-dir OUT_DIR] [--samples SAMPLES] [--horizon HORIZON]` | `--out-dir results`; `--samples None` (100000); `--horizon None` (50). | Executes Monte Carlo simulation; writes `summary.csv`, `prcc.csv`, `sourcing_priority.csv`, and trajectory files. |
-| `figures` | `[--parameters PARAMETERS] [--config CONFIG] [--strict] [--allow-mixed-basis] [--region {global,us}] [--basis {withdrawal,consumption}] [--out-dir OUT_DIR] [--samples SAMPLES]` | `--out-dir results`; `--samples None` (100000). | Generates publication figures (`fig1` through `fig5`, `fig8`) in PNG (300 DPI) and SVG. |
-| `knockouts` | `[--parameters PARAMETERS] [--config CONFIG] [--strict] [--allow-mixed-basis] [--region {global,us}] [--basis {withdrawal,consumption}] [--out-dir OUT_DIR] [--samples SAMPLES] [--horizon HORIZON]` | `--out-dir results`; `--samples None` (100000); `--horizon None` (50). | Runs Common-Random-Number structural knockouts (e.g., zero rebound, no delay, flat cost); produces `fig6_knockouts`. |
-| `threshold` | `[--parameters PARAMETERS] [--config CONFIG] [--strict] [--allow-mixed-basis] [--region {global,us}] [--basis {withdrawal,consumption}] [--out-dir OUT_DIR] [--samples SAMPLES] [--x X] [--y Y] [--horizon HORIZON] [--grid GRID] [--n-per-cell N_PER_CELL] [--x-range LO HI] [--y-range LO HI] [--log]` | `--out-dir results`; `--samples None`; `--x g_global`; `--y phi_solar_food`; `--horizon 30`; `--grid 15`; `--n-per-cell 5000`; `--x-range None`; `--y-range None`; `--log` false. | Evaluates 2D break-even parameter response surfaces over shared base draws; produces `fig7_threshold_map`. Optional range overrides and log-spacing. |
+| `figures` | `[--parameters PARAMETERS] [--config CONFIG] [--strict] [--allow-mixed-basis] [--region {global,us}] [--basis {withdrawal,consumption}] [--out-dir OUT_DIR] [--samples SAMPLES] [--horizon HORIZON]` | `--out-dir results`; `--samples None` (100000); `--horizon None` (50). | Generates publication figures (`fig1` through `fig5`, `fig8`) in PNG (300 DPI) and SVG. |
+| `knockouts` | `[--parameters PARAMETERS] [--config CONFIG] [--strict] [--allow-mixed-basis] [--region {global,us}] [--basis {withdrawal,consumption}] [--out-dir OUT_DIR] [--samples SAMPLES] [--horizon HORIZON]` | `--out-dir results`; `--samples None` (100000); `--horizon None` (50). | Runs Common-Random-Number structural knockouts (e.g., zero rebound, no delay, flat cost); produces `fig6_knockouts`. For horizons below 10 years the figure falls back to P(never break-even within T). |
+| `threshold` | `[--parameters PARAMETERS] [--config CONFIG] [--strict] [--allow-mixed-basis] [--region {global,us}] [--basis {withdrawal,consumption}] [--out-dir OUT_DIR] [--samples SAMPLES] [--x X] [--y Y] [--horizon HORIZON] [--grid GRID] [--n-per-cell N_PER_CELL] [--x-range LO HI] [--y-range LO HI] [--log] [--conditional {none,solar_food,desal,both}] [--eval-horizon EVAL_HORIZON]` | `--out-dir results`; `--samples None`; `--x g_global`; `--y phi_solar_food`; `--horizon 30`; `--grid 15`; `--n-per-cell 5000`; `--x-range None`; `--y-range None`; `--log` false; `--conditional none`; `--eval-horizon None`. | Evaluates 2D break-even parameter response surfaces over shared base draws; produces `fig7_threshold_map`. Optional range overrides, log-spacing, conditioning on deployment, and a longer evaluation horizon. `--samples` is ignored with a stderr notice. |
 | `reproduce` | `[--parameters PARAMETERS] [--config CONFIG] [--strict] [--allow-mixed-basis] [--region {global,us}] [--basis {withdrawal,consumption}] [--out-dir OUT_DIR] [--samples SAMPLES] [--horizon HORIZON]` | `--out-dir results`; `--samples None` (100000); `--horizon None` (50). | Runs complete pipeline across all runnable scenario configurations and records run manifests. |
 
 ## Generated Artifacts
@@ -116,8 +118,8 @@ Common defaults are `--parameters data/parameters.csv`, `--config configs/base.t
 | :--- | :--- |
 | `summary.json` / `.csv` | Horizon break-even probabilities, Wilson confidence intervals, MCSE, $N(T)$ quantiles, benefit shares, and notice disclosures. |
 | `prcc.csv` | Partial Rank Correlation Coefficients of continuous parameters against cumulative net balance $N(T)$. |
-| `tornado.csv` | One-at-a-time low/high sensitivity of the final net balance $N(T)$, ranked by swing. |
-| `sourcing_priority.csv` | Parameters ranked by absolute PRCC with source traceability, confidence tiers, and dominance warnings. |
+| `tornado.csv` | One-at-a-time low/high sensitivity of the final net balance $N(T)$, ranked by swing, with deterministic distribution-midpoint baselines (no Bernoulli draws). |
+| `sourcing_priority.csv` | Parameters ranked by absolute PRCC with source traceability, confidence tiers, dominance warnings, break-even correlations conditional on solar-food deployment (`abs_corr_breakeven_given_solar_food`), and `breakeven_dominance_warning` flags. |
 | `conditions.csv` | Parameter medians and IQRs stratified by runs achieving sustained break-even by the configured conditions_horizon (default 30). |
 | `cost_trajectory.csv` | Cost percentiles $C(t)$ and compounding ratios $C(t)/C(0)$ at benchmark years (5, 10, 25, 50). |
 | `net_balance_by_horizon.csv` | Cumulative balance $N(t)$ percentiles across comparison horizons. |

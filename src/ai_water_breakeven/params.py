@@ -68,6 +68,8 @@ def load_parameters(csv_path: str | Path) -> Dict[str, Parameter]:
         )
         if not basis or basis in ("", "na", "none"):
             basis = "n/a"
+        if name in params:
+            raise ValueError(f"Duplicate parameter name '{name}' in {csv_path}")
         low, mode, high = float(r["low"]), float(r["mode"]), float(r["high"])
         if unit in ("gal/yr", "gal"):
             low, mode, high, unit = (

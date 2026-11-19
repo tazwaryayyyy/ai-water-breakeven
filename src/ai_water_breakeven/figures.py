@@ -94,20 +94,21 @@ def plot_breakeven_distribution(
 ) -> None:
     be_years = res.be_years if mask is None else res.be_years[mask]
     n = res.n_samples if mask is None else int(np.sum(mask))
+    denom = n if n > 0 else 1
     fig, ax = plt.subplots(figsize=(8, 4.5))
     counts, _ = np.histogram(
         be_years[~np.isnan(be_years)], bins=np.arange(1, res.t_horizon + 2) - 0.5
     )
     ax.bar(
         np.arange(1, res.t_horizon + 1),
-        counts / n,
+        counts / denom,
         width=0.8,
         color=CB_BLUE,
         label="Break-Even Year",
     )
     ax.bar(
         [res.t_horizon + 3],
-        [float(np.mean(np.isnan(be_years)))],
+        [float(np.mean(np.isnan(be_years))) if n > 0 else 0.0],
         width=1.5,
         color=CB_GREY,
         label="Never",
@@ -227,10 +228,10 @@ def plot_tornado_chart(
     _save(fig, out, has_ph, is_mix, cost_scope=cost_scope, basis_notice=basis_notice)
 
 
-def plot_scope_comparison(r0: SimulationResults, r1: SimulationResults, out: Path) -> None:
+def plot_scope_comparison(r0: SimulationResults, r1: SimulationResults | None, out: Path) -> None:
     fig, ax = plt.subplots(figsize=(7, 4.2))
     t = np.arange(1, r0.t_horizon + 1)
-    notice = r0.basis_notice or r1.basis_notice
+    notice = r0.basis_notice or (r1.basis_notice if r1 is not None else None)
     if r0.cost_scope == "scope 1+2 combined":
         ax.plot(
             t,
@@ -299,19 +300,22 @@ def plot_knockout_probabilities(
     basis_notice: str | None = None,
 ) -> None:
     """Draw common-random-number knockout probabilities with Wilson intervals."""
-    suffix = (
-        "yr30"
-        if "p_breakeven_yr30" in df
-        else "yr"
-        + str(
-            max(int(c.removeprefix("p_breakeven_yr")) for c in df if c.startswith("p_breakeven_yr"))
+    yr_cols = [c for c in df.columns if c.startswith("p_breakeven_yr")]
+    if yr_cols:
+        suffix = (
+            "yr30"
+            if "p_breakeven_yr30" in df
+            else "yr" + str(max(int(c.removeprefix("p_breakeven_yr")) for c in yr_cols))
         )
-    )
-    p_col, low_col, high_col = (
-        f"p_breakeven_{suffix}",
-        f"ci_low_{suffix}",
-        f"ci_high_{suffix}",
-    )
+        p_col, low_col, high_col = (
+            f"p_breakeven_{suffix}",
+            f"ci_low_{suffix}",
+            f"ci_high_{suffix}",
+        )
+        xlabel = f"P(sustained break-even by {suffix.removeprefix('yr')} yr), 95% Wilson interval"
+    else:
+        p_col, low_col, high_col = "p_never", "ci_low_never", "ci_high_never"
+        xlabel = "P(never sustained break-even within T), 95% Wilson interval"
     sub = df.iloc[::-1]
     values = sub[p_col].to_numpy()
     errors = np.vstack((values - sub[low_col].to_numpy(), sub[high_col].to_numpy() - values))
@@ -320,7 +324,7 @@ def plot_knockout_probabilities(
     ax.set_yticks(np.arange(len(sub)))
     ax.set_yticklabels(sub["scenario"])
     ax.set(
-        xlabel=f"P(sustained break-even by {suffix.removeprefix('yr')} yr), 95% Wilson interval",
+        xlabel=xlabel,
         xlim=(0, 1),
         title="Common-Random-Number Knockout Scenarios",
     )
@@ -336,15 +340,23 @@ def plot_threshold_map(
     has_ph: bool,
     cost_scope: str | None = None,
     basis_notice: str | None = None,
+    log_spacing: bool = False,
 ) -> None:
     """Plot threshold probabilities and requested probability contours."""
     x_values = np.sort(df["x"].unique())
     y_values = np.sort(df["y"].unique())
     z = df.pivot(index="y", columns="x", values="P").reindex(index=y_values, columns=x_values)
+    z_arr = z.to_numpy()
     fig, ax = plt.subplots(figsize=(7.5, 5.4))
-    image = ax.pcolormesh(x_values, y_values, z.to_numpy(), shading="auto", vmin=0, vmax=1)
-    contours = ax.contour(x_values, y_values, z.to_numpy(), levels=[0.1, 0.5, 0.9], colors="black")
-    ax.clabel(contours, fmt="%.1f", fontsize=8)
+    image = ax.pcolormesh(x_values, y_values, z_arr, shading="auto", vmin=0, vmax=1)
+    z_min, z_max = float(np.nanmin(z_arr)), float(np.nanmax(z_arr))
+    levels = [lv for lv in (0.1, 0.5, 0.9) if z_min < lv < z_max]
+    if levels:
+        contours = ax.contour(x_values, y_values, z_arr, levels=levels, colors="black")
+        ax.clabel(contours, fmt="%.1f", fontsize=8)
+    if log_spacing:
+        ax.set_xscale("log")
+        ax.set_yscale("log")
     fig.colorbar(image, ax=ax, label="P(sustained break-even by horizon)")
     ax.set(xlabel=x_label, ylabel=y_label, title="Break-Even Threshold Map")
     _save(fig, out, has_ph, False, cost_scope=cost_scope, basis_notice=basis_notice)

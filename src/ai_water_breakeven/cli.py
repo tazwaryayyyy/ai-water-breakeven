@@ -32,18 +32,22 @@ from ai_water_breakeven.params import (
     select_scenario_parameters,
     validate_parameters,
 )
+from ai_water_breakeven.sample import create_scenario_rng, sample_parameter_matrix
 from ai_water_breakeven.simulate import (
+    KNOCKOUT_SCENARIOS,
+    _apply_knockout,
+    _copy_draws,
+    _evaluate_samples,
+    _knockout_row,
     compute_conditional_table,
     compute_conditions_table,
     compute_cost_trajectory,
-    compute_knockout_table,
     compute_net_balance_by_horizon,
     compute_prcc,
     compute_sourcing_priority,
     compute_summary_metrics,
     compute_threshold_map,
     compute_tornado,
-    run_knockout_scenarios,
     run_simulation,
 )
 
@@ -94,7 +98,10 @@ def _metadata(cfg: Dict[str, Any], p_path: Path, c_path: Path, res: Any) -> Dict
 
 
 def load_config(p: Path) -> Dict[str, Any]:
-    return tomllib.load(open(p, "rb")) if p.is_file() else {}
+    if not p.is_file():
+        return {}
+    with open(p, "rb") as f:
+        return tomllib.load(f)
 
 
 def _scenario_dimensions(cfg: Dict[str, Any], args: argparse.Namespace) -> tuple[str, str]:
@@ -160,7 +167,8 @@ def cmd_run(args: argparse.Namespace) -> int:
     summary = compute_summary_metrics(res)
     if res.has_placeholder:
         summary["publication_notice"] = PLACEHOLDER_NOTICE
-    json.dump(summary, open(out / "summary.json", "w", encoding="utf-8"), indent=2)
+    with open(out / "summary.json", "w", encoding="utf-8") as f:
+        json.dump(summary, f, indent=2)
     _write_table(pd.DataFrame([summary]), out / "summary.csv", res.has_placeholder)
     _write_table(
         compute_prcc(res.sampled_params, res.final_net_balances),
@@ -187,11 +195,8 @@ def cmd_run(args: argparse.Namespace) -> int:
     if res.basis_notice:
         conditional_df["basis_notice"] = res.basis_notice
     _write_table(conditional_df, out / "conditional.csv", res.has_placeholder)
-    json.dump(
-        _metadata(cfg, Path(args.parameters), Path(args.config), res),
-        open(out / "run_metadata.json", "w", encoding="utf-8"),
-        indent=2,
-    )
+    with open(out / "run_metadata.json", "w", encoding="utf-8") as f:
+        json.dump(_metadata(cfg, Path(args.parameters), Path(args.config), res), f, indent=2)
     dominant_params = (
         sourcing_df.loc[sourcing_df["dominance_warning"], "parameter"].tolist()
         if "dominance_warning" in sourcing_df
@@ -215,7 +220,10 @@ def cmd_figures(args: argparse.Namespace) -> int:
         Path(args.out_dir),
     )
     out.mkdir(parents=True, exist_ok=True)
-    t_h, n_s = cfg.get("T", 50), args.samples or cfg.get("N", 100000)
+    t_h, n_s = (
+        getattr(args, "horizon", None) or cfg.get("T", 50),
+        args.samples or cfg.get("N", 100000),
+    )
     region, basis, seed = (*_scenario_dimensions(cfg, args), cfg.get("seed", 42))
     allow_m = args.allow_mixed_basis or cfg.get("allow_mixed_basis", False)
 
@@ -242,16 +250,21 @@ def cmd_figures(args: argparse.Namespace) -> int:
         region=region,
         basis=basis,
     )
-    r1 = run_simulation(
-        params,
-        t_h,
-        n_s,
-        1.0,
-        seed=seed,
-        scenario_idx=1,
-        allow_mixed_basis=allow_m,
-        region=region,
-        basis=basis,
+    # Global cost is scope 1+2 combined, so the k=1 run would be identical and unused.
+    r1 = (
+        None
+        if region == "global"
+        else run_simulation(
+            params,
+            t_h,
+            n_s,
+            1.0,
+            seed=seed,
+            scenario_idx=1,
+            allow_mixed_basis=allow_m,
+            region=region,
+            basis=basis,
+        )
     )
 
     plot_breakeven_distribution(r0, out / "fig1_breakeven_dist")
@@ -297,23 +310,42 @@ def cmd_knockouts(args: argparse.Namespace) -> int:
     except ValueError as e:
         print(f"Validation failed:\n{e}", file=sys.stderr)
         return 1
-    results = run_knockout_scenarios(
-        params,
-        t_h,
-        n_s,
-        cfg.get("k", 0.0),
-        cfg.get("seed", 42),
-        region,
-        basis,
+    active, missing = select_scenario_parameters(params, region, basis)
+    if missing:
+        raise ValueError(f"Missing rows for region={region}, basis={basis}: {', '.join(missing)}")
+    base_samples, base_deployments = sample_parameter_matrix(
+        list(active.values()), n_s, create_scenario_rng(cfg.get("seed", 42), 0)
     )
-    table = compute_knockout_table(results)
-    _write_table(table, out / "knockouts.csv", results["baseline"].has_placeholder)
+    k_sw = cfg.get("k", 0.0)
+    rows = []
+    baseline_summary: Dict[str, Any] = {}
+    baseline_meta: Dict[str, Any] = {}
+    # Stream scenarios so only one result set is alive at a time (peak-memory reduction).
+    for name in KNOCKOUT_SCENARIOS:
+        samples, deployments = _copy_draws(base_samples, base_deployments)
+        _apply_knockout(name, samples, deployments, active)
+        result = _evaluate_samples(active, samples, deployments, t_h, k_sw, region, basis)
+        summary = compute_summary_metrics(result)
+        if name == "baseline":
+            baseline_summary = summary
+            baseline_meta = {
+                "has_placeholder": result.has_placeholder,
+                "cost_scope": result.cost_scope,
+                "basis_notice": result.basis_notice,
+            }
+        rows.append(
+            _knockout_row(
+                name, summary, baseline_summary, result.t_horizon, baseline_meta["basis_notice"]
+            )
+        )
+    table = pd.DataFrame(rows)
+    _write_table(table, out / "knockouts.csv", baseline_meta["has_placeholder"])
     plot_knockout_probabilities(
         table,
         out / "fig6_knockouts",
-        results["baseline"].has_placeholder,
-        cost_scope=results["baseline"].cost_scope,
-        basis_notice=results["baseline"].basis_notice,
+        baseline_meta["has_placeholder"],
+        cost_scope=baseline_meta["cost_scope"],
+        basis_notice=baseline_meta["basis_notice"],
     )
     print(f"Knockout outputs written to {out}")
     return 0
@@ -346,6 +378,14 @@ def cmd_threshold(args: argparse.Namespace) -> int:
     x_range = getattr(args, "x_range", None)
     y_range = getattr(args, "y_range", None)
     log_spacing = getattr(args, "log", False)
+    if getattr(args, "samples", None) is not None:
+        print(
+            "notice: --n-per-cell controls threshold cell sample size; --samples is ignored.",
+            file=sys.stderr,
+        )
+    conditional = getattr(args, "conditional", "none")
+    conditional = None if conditional in (None, "none") else conditional
+    eval_horizon = getattr(args, "eval_horizon", None)
 
     table = compute_threshold_map(
         params,
@@ -361,6 +401,8 @@ def cmd_threshold(args: argparse.Namespace) -> int:
         x_range=x_range,
         y_range=y_range,
         log_spacing=log_spacing,
+        conditional=conditional,
+        eval_horizon=eval_horizon,
     )
     active, _ = select_scenario_parameters(params, region, basis)
     by_name = {param.name: param for param in active.values()}
@@ -395,6 +437,7 @@ def cmd_threshold(args: argparse.Namespace) -> int:
         has_placeholder,
         cost_scope=cost_scope,
         basis_notice=thresh_notice,
+        log_spacing=log_spacing,
     )
     print(f"Threshold map written to {out}")
     return 0
@@ -438,23 +481,29 @@ def cmd_reproduce(args: argparse.Namespace) -> int:
         except ValueError as error:
             print(f"Validation failed:\n{error}", file=sys.stderr)
             return 1
-        for command in (cmd_run, cmd_figures, cmd_knockouts, cmd_threshold):
+        t_h = local.horizon or cfg.get("T", 50)
+        threshold_args = argparse.Namespace(**vars(local))
+        threshold_args.horizon = min(cfg.get("conditions_horizon", 30), t_h)
+        for command in (cmd_run, cmd_figures, cmd_knockouts):
             if command(local) != 0:
                 return 1
+        if cmd_threshold(threshold_args) != 0:
+            return 1
         record = {"region": region, "basis": basis, "status": "ran", "missing_rows": ""}
         status_rows.append(record)
         ran.append({"region": region, "basis": basis, "out_dir": local.out_dir})
     has_placeholder = any(p.is_placeholder_or_missing for p in params.values())
     _write_table(pd.DataFrame(status_rows), root / "reproduce_status.csv", has_placeholder)
-    json.dump(
-        {
-            "ran": ran,
-            "skipped": skipped,
-            "publication_notice": PLACEHOLDER_NOTICE if has_placeholder else None,
-        },
-        open(root / "reproduce_manifest.json", "w", encoding="utf-8"),
-        indent=2,
-    )
+    with open(root / "reproduce_manifest.json", "w", encoding="utf-8") as f:
+        json.dump(
+            {
+                "ran": ran,
+                "skipped": skipped,
+                "publication_notice": PLACEHOLDER_NOTICE if has_placeholder else None,
+            },
+            f,
+            indent=2,
+        )
     print(f"Reproduction complete. Skipped combinations: {len(skipped)}")
     return 0
 
@@ -475,7 +524,7 @@ def main() -> None:
         if name in ("run", "figures", "knockouts", "threshold", "reproduce"):
             sp.add_argument("--out-dir", default="results")
             sp.add_argument("--samples", type=int, default=None)
-        if name in ("run", "knockouts", "reproduce"):
+        if name in ("run", "figures", "knockouts", "reproduce"):
             sp.add_argument("--horizon", type=int, default=None)
         if name == "threshold":
             sp.add_argument("--x", default="g_global")
@@ -486,6 +535,10 @@ def main() -> None:
             sp.add_argument("--x-range", nargs=2, type=float, default=None, metavar=("LO", "HI"))
             sp.add_argument("--y-range", nargs=2, type=float, default=None, metavar=("LO", "HI"))
             sp.add_argument("--log", action="store_true")
+            sp.add_argument(
+                "--conditional", choices=["none", "solar_food", "desal", "both"], default="none"
+            )
+            sp.add_argument("--eval-horizon", dest="eval_horizon", type=int, default=None)
 
     args = p.parse_args()
     cmds = {

@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from ai_water_breakeven import cli
 from ai_water_breakeven.cli import (
     cmd_figures,
     cmd_knockouts,
@@ -13,6 +14,8 @@ from ai_water_breakeven.cli import (
     cmd_threshold,
     cmd_validate,
 )
+from ai_water_breakeven.params import load_parameters
+from ai_water_breakeven.simulate import compute_knockout_table, run_knockout_scenarios
 
 
 class DummyArgs:
@@ -168,3 +171,62 @@ def test_placeholder_watermark_in_all_outputs_and_strict_fails(tmp_path):
         assert "PLACEHOLDER INPUTS - NOT FOR PUBLICATION" in content, (
             f"Missing mark in {svg_file.name}"
         )
+
+
+def test_cli_figures_horizon_flag(tmp_path, monkeypatch):
+    captured = []
+    real_run = cli.run_simulation
+
+    def spy(*a, **kw):
+        captured.append(a[1] if len(a) > 1 else kw.get("t_horizon"))
+        return real_run(*a, **kw)
+
+    monkeypatch.setattr(cli, "run_simulation", spy)
+    args = DummyArgs(out_dir=str(tmp_path / "figs_h"), samples=100, horizon=12)
+    assert cmd_figures(args) == 0
+    assert captured == [12]
+
+
+def test_cli_reproduce_threshold_horizon_capped(tmp_path, monkeypatch):
+    for name in ("cmd_run", "cmd_figures", "cmd_knockouts"):
+        monkeypatch.setattr(cli, name, lambda args: 0)
+    seen = []
+
+    def fake_threshold(args):
+        seen.append(args.horizon)
+        return 0
+
+    monkeypatch.setattr(cli, "cmd_threshold", fake_threshold)
+    assert cmd_reproduce(DummyArgs(out_dir=str(tmp_path / "r40"), samples=100, horizon=40)) == 0
+    assert cmd_reproduce(DummyArgs(out_dir=str(tmp_path / "r15"), samples=100, horizon=15)) == 0
+    assert seen == [30, 30, 15, 15]
+
+
+def test_cli_threshold_samples_notice(tmp_path, capsys):
+    args = DummyArgs(out_dir=str(tmp_path / "th_notice"), samples=100)
+    args.grid, args.n_per_cell, args.x, args.y = 2, 50, "g_global", "phi_solar_food"
+    assert cmd_threshold(args) == 0
+    err = capsys.readouterr().err
+    assert "--n-per-cell" in err
+    assert "--samples is ignored" in err
+
+
+def test_cli_knockouts_matches_reference_table(tmp_path):
+    out_dir = tmp_path / "ko_ref"
+    args = DummyArgs(out_dir=str(out_dir), samples=200, horizon=15)
+    assert cmd_knockouts(args) == 0
+    written = pd.read_csv(out_dir / "knockouts.csv")
+    written = written.drop(columns=["publication_notice"], errors="ignore")
+    params = load_parameters("data/parameters.csv")
+    reference = compute_knockout_table(
+        run_knockout_scenarios(params, t_horizon=15, n_samples=200, seed=42)
+    )
+    pd.testing.assert_frame_equal(written, reference)
+
+
+def test_cli_knockouts_short_horizon_figure_fallback(tmp_path):
+    out_dir = tmp_path / "ko_short"
+    args = DummyArgs(out_dir=str(out_dir), samples=100, horizon=5)
+    assert cmd_knockouts(args) == 0
+    svg = (out_dir / "fig6_knockouts.svg").read_text(encoding="utf-8")
+    assert "P(never sustained break-even within T)" in svg

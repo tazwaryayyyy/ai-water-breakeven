@@ -2,10 +2,14 @@
 and marginal distributions.
 """
 
+import warnings
+from dataclasses import replace
+
 import numpy as np
 import pandas as pd
 import pytest
 
+from ai_water_breakeven import figures
 from ai_water_breakeven.params import Parameter, load_parameters
 from ai_water_breakeven.sample import sample_inverse_cdf, sample_parameter_matrix
 from ai_water_breakeven.simulate import (
@@ -15,6 +19,7 @@ from ai_water_breakeven.simulate import (
     compute_sourcing_priority,
     compute_summary_metrics,
     compute_threshold_map,
+    compute_tornado,
     run_knockout_scenarios,
     run_simulation,
     wilson_interval,
@@ -557,3 +562,189 @@ def test_conditional_table_empty_deployments():
         "be_year_p95",
     ]:
         assert column in df.columns
+
+
+def test_threshold_log_axes_and_contour_filtering(tmp_path, monkeypatch):
+    captured = {}
+
+    def fake_save(fig, out, has_ph, is_mix, cost_scope=None, basis_notice=None):
+        captured["fig"] = fig
+
+    monkeypatch.setattr(figures, "_save", fake_save)
+    df = pd.DataFrame({"x": [1, 1, 10, 10], "y": [1, 10, 1, 10], "P": [0.2, 0.3, 0.35, 0.4]})
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        figures.plot_threshold_map(df, tmp_path / "t.png", "X", "Y", False, log_spacing=True)
+    ax = captured["fig"].axes[0]
+    assert ax.get_xscale() == "log"
+    assert ax.get_yscale() == "log"
+    assert not any("contour" in str(w.message).lower() for w in caught)
+
+    wide = pd.DataFrame({"x": [1, 1, 10, 10], "y": [1, 10, 1, 10], "P": [0.05, 0.4, 0.6, 0.95]})
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        figures.plot_threshold_map(wide, tmp_path / "w.png", "X", "Y", False, log_spacing=True)
+    assert not any("contour" in str(w.message).lower() for w in caught)
+
+
+def test_threshold_conditional_matches_fixed_probability(synthetic_params):
+    common = dict(horizon=20, grid=3, n_per_cell=200, seed=7)
+    cases = [
+        ("solar_food", {"p_solar_food": ("fixed", 1.0, 1.0, 1.0)}),
+        ("desal", {"p_desal": ("fixed", 1.0, 1.0, 1.0)}),
+        (
+            "both",
+            {
+                "p_solar_food": ("fixed", 1.0, 1.0, 1.0),
+                "p_desal": ("fixed", 1.0, 1.0, 1.0),
+            },
+        ),
+    ]
+    for conditional, overrides in cases:
+        table_cond = compute_threshold_map(
+            synthetic_params(), "g_global", "phi_solar_food", conditional=conditional, **common
+        )
+        table_fixed = compute_threshold_map(
+            synthetic_params(overrides), "g_global", "phi_solar_food", **common
+        )
+        pd.testing.assert_frame_equal(table_cond, table_fixed)
+
+
+def test_threshold_conditional_and_eval_horizon_validation(synthetic_params):
+    with pytest.raises(ValueError, match="conditional"):
+        compute_threshold_map(
+            synthetic_params(),
+            "g_global",
+            "phi_solar_food",
+            grid=2,
+            n_per_cell=10,
+            conditional="bogus",
+        )
+    with pytest.raises(ValueError, match="eval_horizon"):
+        compute_threshold_map(
+            synthetic_params(),
+            "g_global",
+            "phi_solar_food",
+            horizon=30,
+            eval_horizon=20,
+            grid=2,
+            n_per_cell=10,
+        )
+
+
+def test_threshold_eval_horizon_exposes_late_reversal(synthetic_params):
+    """Benefit 15/yr vs cost 10/yr through year 30, then cost grows 10%/yr:
+    N(30)=150 sustained within 30 years, but N(50) is negative."""
+    params = synthetic_params(
+        {
+            "W_direct_global": ("fixed", 10.0, 10.0, 10.0),
+            "g_global": ("fixed", 0.0, 0.0, 0.0),
+            "G_global": ("fixed", 30.0, 30.0, 30.0),
+            "g2_global": ("fixed", 0.10, 0.10, 0.10),
+            "p_desal": ("fixed", 0.0, 0.0, 0.0),
+            "p_solar_food": ("fixed", 1.0, 1.0, 1.0),
+            "alpha_solar_food": ("fixed", 1.0, 1.0, 1.0),
+            "rho_solar_food": ("fixed", 0.0, 0.0, 0.0),
+            "L_solar_food": ("fixed", 0.0, 0.0, 0.0),
+            "R_solar_food": ("fixed", 0.0, 0.0, 0.0),
+            "phi_solar_food": ("fixed", 0.05, 0.05, 0.05),
+            "A_solar_food": ("fixed", 300.0, 300.0, 300.0),
+            "r_solar_food": ("fixed", 0.0, 0.0, 0.0),
+        }
+    )
+    common = dict(
+        horizon=30, grid=2, n_per_cell=20, seed=3, x_range=(0.0, 0.0), y_range=(0.05, 0.05)
+    )
+    table_default = compute_threshold_map(params, "g_global", "phi_solar_food", **common)
+    table_eval = compute_threshold_map(
+        params, "g_global", "phi_solar_food", eval_horizon=50, **common
+    )
+    assert (table_default["P"] == 1.0).all()
+    assert (table_eval["P"] == 0.0).all()
+
+
+def test_sourcing_priority_new_columns_and_guards(base_params):
+    res = run_simulation(base_params, t_horizon=30, n_samples=800, seed=11)
+    df = compute_sourcing_priority(res)
+    for column in (
+        "abs_corr_breakeven_given_solar_food",
+        "breakeven_dominance_warning",
+        "rank_notice",
+    ):
+        assert column in df.columns
+    assert (df["breakeven_dominance_warning"] == (df["abs_corr_breakeven"] > 0.85)).all()
+    assert df["rank_notice"].str.contains("mediated").all()
+    assert df["abs_corr_breakeven_given_solar_food"].notna().any()
+    indexed = df.set_index("parameter")
+    assert np.isnan(indexed.loc["s_solar_food", "abs_corr_breakeven_given_solar_food"])
+
+    no_deployments = replace(res, deployments={})
+    assert (
+        compute_sourcing_priority(no_deployments)["abs_corr_breakeven_given_solar_food"]
+        .isna()
+        .all()
+    )
+    few = np.zeros(res.n_samples)
+    few[:2] = 1.0
+    two_deployed = replace(res, deployments={"s_solar_food": few})
+    assert (
+        compute_sourcing_priority(two_deployed)["abs_corr_breakeven_given_solar_food"].isna().all()
+    )
+
+
+def test_tornado_uniform_baseline_is_midpoint(synthetic_params):
+    skewed = synthetic_params({"W_direct_global": ("uniform", 10.0, 15.0, 30.0)})
+    centered = synthetic_params({"W_direct_global": ("uniform", 10.0, 20.0, 30.0)})
+    row_skewed = compute_tornado(skewed, t_horizon=20).set_index("parameter").loc["W_direct"]
+    row_centered = compute_tornado(centered, t_horizon=20).set_index("parameter").loc["W_direct"]
+    assert row_skewed["base"] == pytest.approx(row_centered["base"])
+    assert row_skewed["val_low"] == pytest.approx(row_centered["val_low"])
+    assert row_skewed["val_high"] == pytest.approx(row_centered["val_high"])
+
+
+def test_threshold_probability_axis_warns(synthetic_params):
+    with pytest.warns(UserWarning, match="does not re-draw deployments"):
+        compute_threshold_map(
+            synthetic_params(),
+            "p_solar_food",
+            "phi_solar_food",
+            horizon=10,
+            grid=2,
+            n_per_cell=20,
+            seed=5,
+        )
+
+
+def test_threshold_log_spacing_rejects_nonpositive_bounds(synthetic_params):
+    with pytest.raises(ValueError, match="strictly positive"):
+        compute_threshold_map(
+            synthetic_params(),
+            "g_global",
+            "phi_solar_food",
+            grid=2,
+            n_per_cell=10,
+            log_spacing=True,
+            x_range=(0.0, 0.3),
+        )
+
+
+def test_load_parameters_rejects_duplicate_names(tmp_path):
+    csv_path = tmp_path / "dup.csv"
+    header = (
+        "name,description,unit,basis,region,year,distribution,low,mode,high,"
+        "source,locator,confidence,notes\n"
+    )
+    row = "x_u,,m^3/yr,n/a,global,2027,fixed,1,1,1,P,,C,\n"
+    csv_path.write_text(header + row + row, encoding="utf-8")
+    with pytest.raises(ValueError, match="Duplicate parameter name"):
+        load_parameters(csv_path)
+
+
+def test_fig8_zero_mask_no_crash(tmp_path, base_params):
+    res = run_simulation(base_params, t_horizon=15, n_samples=100, seed=4)
+    mask = np.zeros(res.n_samples, dtype=bool)
+    figures.plot_breakeven_distribution(
+        res, tmp_path / "fig8.png", mask=mask, label="solar food deployed"
+    )
+    assert (tmp_path / "fig8.png").is_file()
+    assert (tmp_path / "fig8.svg").is_file()

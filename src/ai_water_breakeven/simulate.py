@@ -1,5 +1,6 @@
 """Vectorized Monte Carlo simulation and sensitivity analysis."""
 
+import warnings
 from dataclasses import dataclass, field
 from typing import Any, Dict, Tuple
 
@@ -271,35 +272,50 @@ def run_knockout_scenarios(
     return results
 
 
+def _knockout_row(
+    name: str,
+    summary: Dict[str, Any],
+    baseline_summary: Dict[str, Any],
+    t_horizon: int,
+    basis_notice: str | None,
+) -> Dict[str, Any]:
+    """Build one knockout table row from precomputed summaries (shared by CLI streaming)."""
+    row: Dict[str, Any] = {"scenario": name}
+    for horizon in [10, 20, 30, 50]:
+        if horizon <= t_horizon:
+            for prefix in ("p_breakeven", "ci_low", "ci_high"):
+                row[f"{prefix}_yr{horizon}"] = summary[f"{prefix}_yr{horizon}"]
+    row.update(
+        {
+            "p_never": summary["p_never"],
+            "ci_low_never": summary["ci_low_never"],
+            "ci_high_never": summary["ci_high_never"],
+            "be_year_median": summary["be_year_median"],
+            "n_T_p5": summary["n_T_p5"],
+            "n_T_p50": summary["n_T_p50"],
+            "n_T_p95": summary["n_T_p95"],
+            "change_p_breakeven_yr30_vs_baseline": (
+                summary.get("p_breakeven_yr30", np.nan)
+                - baseline_summary.get("p_breakeven_yr30", np.nan)
+            ),
+        }
+    )
+    if basis_notice:
+        row["basis_notice"] = basis_notice
+    return row
+
+
 def compute_knockout_table(results: Dict[str, SimulationResults]) -> pd.DataFrame:
     """Summarize common-random-number scenarios against the baseline by fixed horizons."""
     baseline = compute_summary_metrics(results["baseline"])
     rows = []
     for name, result in results.items():
         summary = compute_summary_metrics(result)
-        row: Dict[str, Any] = {"scenario": name}
-        for horizon in [10, 20, 30, 50]:
-            if horizon <= result.t_horizon:
-                for prefix in ("p_breakeven", "ci_low", "ci_high"):
-                    row[f"{prefix}_yr{horizon}"] = summary[f"{prefix}_yr{horizon}"]
-        row.update(
-            {
-                "p_never": summary["p_never"],
-                "ci_low_never": summary["ci_low_never"],
-                "ci_high_never": summary["ci_high_never"],
-                "be_year_median": summary["be_year_median"],
-                "n_T_p5": summary["n_T_p5"],
-                "n_T_p50": summary["n_T_p50"],
-                "n_T_p95": summary["n_T_p95"],
-                "change_p_breakeven_yr30_vs_baseline": (
-                    summary.get("p_breakeven_yr30", np.nan)
-                    - baseline.get("p_breakeven_yr30", np.nan)
-                ),
-            }
+        rows.append(
+            _knockout_row(
+                name, summary, baseline, result.t_horizon, results["baseline"].basis_notice
+            )
         )
-        if results["baseline"].basis_notice:
-            row["basis_notice"] = results["baseline"].basis_notice
-        rows.append(row)
     return pd.DataFrame(rows)
 
 
@@ -364,10 +380,20 @@ def compute_threshold_map(
     x_range: Tuple[float, float] | None = None,
     y_range: Tuple[float, float] | None = None,
     log_spacing: bool = False,
+    conditional: str | None = None,
+    eval_horizon: int | None = None,
 ) -> pd.DataFrame:
-    """Map break-even probability by fixing two columns over shared base draws."""
+    """Map break-even probability by fixing two columns over shared base draws.
+
+    conditional forces the named pathway probability and deployment draw to 1.0;
+    eval_horizon simulates through that year while still counting break-even by horizon.
+    """
     if grid < 2:
         raise ValueError("grid must be at least 2")
+    if conditional not in (None, "solar_food", "desal", "both"):
+        raise ValueError("conditional must be None, 'solar_food', 'desal', or 'both'")
+    if eval_horizon is not None and eval_horizon < horizon:
+        raise ValueError("eval_horizon must be at least horizon")
     active, missing = select_scenario_parameters(params, region, basis)
     if missing:
         raise ValueError(f"Missing rows for region={region}, basis={basis}: {', '.join(missing)}")
@@ -377,6 +403,15 @@ def compute_threshold_map(
             "Threshold axes must be selected parameters for the requested region and basis"
         )
     x_param, y_param = active[role_by_name[x_name]], active[role_by_name[y_name]]
+    for axis_name in (x_name, y_name):
+        if role_by_name[axis_name] in ("p_desal", "p_solar_food"):
+            warnings.warn(
+                f"Threshold axis '{axis_name}' overrides the probability column, but the "
+                "Bernoulli deployment draws remain those of the base probabilities; the "
+                "surface does not re-draw deployments.",
+                UserWarning,
+                stacklevel=2,
+            )
 
     if x_range is not None:
         x_lo, x_hi = x_range
@@ -389,6 +424,8 @@ def compute_threshold_map(
         y_lo, y_hi = sample_inverse_cdf(y_param, np.array([0.05, 0.95]))
 
     if log_spacing:
+        if min(x_lo, x_hi, y_lo, y_hi) <= 0:
+            raise ValueError("log_spacing requires strictly positive range bounds")
         x_values = np.geomspace(x_lo, x_hi, grid)
         y_values = np.geomspace(y_lo, y_hi, grid)
     else:
@@ -398,14 +435,19 @@ def compute_threshold_map(
     base_samples, base_deployments = sample_parameter_matrix(
         list(active.values()), n_per_cell, create_scenario_rng(seed, 17)
     )
+    t_eval = horizon if eval_horizon is None else eval_horizon
     rows = []
     for x_value in x_values:
         for y_value in y_values:
             samples, deployments = _copy_draws(base_samples, base_deployments)
             samples[x_name] = np.full(n_per_cell, x_value)
             samples[y_name] = np.full(n_per_cell, y_value)
+            if conditional in ("solar_food", "both"):
+                _set_probability(samples, deployments, active, "p_solar_food", 1.0)
+            if conditional in ("desal", "both"):
+                _set_probability(samples, deployments, active, "p_desal", 1.0)
             result = _evaluate_samples(
-                active, samples, deployments, horizon, k_switch, region, basis
+                active, samples, deployments, t_eval, k_switch, region, basis
             )
             count = int(np.sum(result.be_years <= horizon))
             ci_low, ci_high = wilson_interval(count, n_per_cell)
@@ -538,6 +580,13 @@ def compute_net_balance_by_horizon(results: SimulationResults) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+RANK_NOTICE = (
+    "Ranks depend on the current input ranges and are provisional; pooled break-even "
+    "correlations of p_* parameters are mediated (attenuated) by their Bernoulli deployment "
+    "draws s_*, so consult abs_corr_breakeven_given_solar_food for deployed-run timing."
+)
+
+
 def compute_sourcing_priority(results: SimulationResults) -> pd.DataFrame:
     """Rank sampled inputs by absolute PRCC and retain traceable source metadata."""
     prcc = compute_prcc(results.sampled_params, results.final_net_balances)
@@ -554,6 +603,21 @@ def compute_sourcing_priority(results: SimulationResults) -> pd.DataFrame:
     prcc_be = compute_prcc(all_inputs, be_years_coded)
     prcc_be_dict = {row["parameter"]: abs(row["prcc"]) for _, row in prcc_be.iterrows()}
 
+    given_sf_dict: Dict[str, float] = {}
+    sf_draws = results.deployments.get("s_solar_food") if results.deployments else None
+    if sf_draws is not None:
+        sf_mask = sf_draws == 1
+        if int(np.sum(sf_mask)) >= 3:
+            excluded = {"s_solar_food"}
+            sf_param = results.active_parameters.get("p_solar_food")
+            if sf_param is not None:
+                excluded.add(sf_param.name)
+            cond_inputs = {k: v[sf_mask] for k, v in all_inputs.items() if k not in excluded}
+            prcc_given_sf = compute_prcc(cond_inputs, be_years_coded[sf_mask])
+            given_sf_dict = {
+                row["parameter"]: abs(row["prcc"]) for _, row in prcc_given_sf.iterrows()
+            }
+
     rows = []
     for _, row in prcc.iterrows():
         parameter = parameter_by_name.get(row["parameter"])
@@ -569,33 +633,41 @@ def compute_sourcing_priority(results: SimulationResults) -> pd.DataFrame:
         else:
             status = "sourced"
         abs_prcc = abs(row["prcc"])
+        abs_corr_be = prcc_be_dict.get(parameter.name, np.nan)
         rows.append(
             {
                 "parameter": parameter.name,
                 "prcc": row["prcc"],
                 "abs_prcc": abs_prcc,
-                "abs_corr_breakeven": prcc_be_dict.get(parameter.name, np.nan),
+                "abs_corr_breakeven": abs_corr_be,
+                "abs_corr_breakeven_given_solar_food": given_sf_dict.get(parameter.name, np.nan),
                 "status": status,
                 "confidence": parameter.confidence,
                 "source": parameter.source,
-                "rank_notice": "Ranks depend on the current input ranges and are provisional.",
+                "rank_notice": RANK_NOTICE,
                 "dominance_warning": bool(abs_prcc > 0.85),
+                "breakeven_dominance_warning": bool(pd.notna(abs_corr_be) and abs_corr_be > 0.85),
             }
         )
 
     if results.deployments:
         for key in results.deployments.keys():
+            abs_corr_be = prcc_be_dict.get(key, np.nan)
             rows.append(
                 {
                     "parameter": key,
                     "prcc": np.nan,
                     "abs_prcc": np.nan,
-                    "abs_corr_breakeven": prcc_be_dict.get(key, np.nan),
+                    "abs_corr_breakeven": abs_corr_be,
+                    "abs_corr_breakeven_given_solar_food": given_sf_dict.get(key, np.nan),
                     "status": "deployment",
                     "confidence": "",
                     "source": "",
-                    "rank_notice": "Ranks depend on the current input ranges and are provisional.",
+                    "rank_notice": RANK_NOTICE,
                     "dominance_warning": False,
+                    "breakeven_dominance_warning": bool(
+                        pd.notna(abs_corr_be) and abs_corr_be > 0.85
+                    ),
                 }
             )
 
@@ -606,11 +678,13 @@ def compute_sourcing_priority(results: SimulationResults) -> pd.DataFrame:
                 "prcc",
                 "abs_prcc",
                 "abs_corr_breakeven",
+                "abs_corr_breakeven_given_solar_food",
                 "status",
                 "confidence",
                 "source",
                 "rank_notice",
                 "dominance_warning",
+                "breakeven_dominance_warning",
             ]
         )
     return (
@@ -626,7 +700,12 @@ def compute_tornado(
     region: str | None = None,
     basis: str = "withdrawal",
 ) -> pd.DataFrame:
-    """Evaluate one-at-a-time low/high sensitivity on final net water balance N(T)."""
+    """Evaluate one-at-a-time low/high sensitivity on final net water balance N(T).
+
+    Baselines use the distribution midpoint: (low+high)/2 for uniform, sqrt(low*high)
+    (the median) for lognormal, and mode for triangular/fixed. Deployment probabilities
+    are evaluated deterministically at baseline rather than drawing Bernoulli trials.
+    """
     scenario_region, scenario_basis = resolve_region_basis(region or "global", basis, cost_basis)
     active, missing = select_scenario_parameters(params, scenario_region, scenario_basis)
     if missing:
@@ -634,7 +713,14 @@ def compute_tornado(
             f"Missing rows for region={scenario_region}, basis={scenario_basis}: "
             f"{', '.join(missing)}"
         )
-    b_vals = {k: p.mode for k, p in active.items()}
+    b_vals = {}
+    for k, p in active.items():
+        if p.distribution == "uniform":
+            b_vals[k] = (p.low + p.high) / 2.0
+        elif p.distribution == "lognormal":
+            b_vals[k] = float(np.sqrt(p.low * p.high))
+        else:
+            b_vals[k] = p.mode
     t = np.arange(1, t_horizon + 1)[np.newaxis, :]
 
     def ev(p: Dict[str, float]) -> float:
@@ -673,11 +759,10 @@ def compute_tornado(
     base = ev(b_vals)
     rows = []
     for k, param in active.items():
-        if k in active:
-            vl, vh = ev({**b_vals, k: param.low}), ev({**b_vals, k: param.high})
-            rows.append(
-                {"parameter": k, "base": base, "val_low": vl, "val_high": vh, "swing": abs(vh - vl)}
-            )
+        vl, vh = ev({**b_vals, k: param.low}), ev({**b_vals, k: param.high})
+        rows.append(
+            {"parameter": k, "base": base, "val_low": vl, "val_high": vh, "swing": abs(vh - vl)}
+        )
     return pd.DataFrame(rows).sort_values(by="swing", ascending=False).reset_index(drop=True)
 
 
