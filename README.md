@@ -4,7 +4,7 @@ Monte Carlo scenario model of the conditions under which water benefits attribut
 
 Equations, definitions and limitations: [docs/model.md](docs/model.md).
 
-> Status: most inputs are PLACEHOLDER or MISSING in `data/parameters.csv`. Outputs are illustrative, not findings. Do not cite them. Sourced: the global AI water baseline (Li et al. 2025) and the agricultural blue-water baseline `A` on the consumption basis. Assumptions informed by sources, not measured rates: `g_global`, `G_global`, `g2_global`, `phi_solar_food`, `r_solar_food_consumption`, `L_solar_food` and `R_solar_food`. Deployment probabilities, attribution shares, rebound and all desalination inputs are placeholders.
+> Status: Deployment probabilities (`p_*`), counterfactual AI attribution (`alpha_*`), rebound (`rho_*`), and desalination improvement rates remain exploratory placeholders (`PLACEHOLDER` in `data/parameters.csv`). Unconditional joint probabilities (e.g., break-even across all runs) must not be cited as real-world forecasts. The analytical findings of this repository are the conditional-on-deployment trajectories, two-parameter break-even thresholds, structural knockouts, and sensitivity diagnostics. Sourced baseline inputs: global AI water baseline (Li et al., 2025), global agricultural blue-water consumption baseline `A` (Chukalla et al., 2025; Mekonnen and Hoekstra, 2011), and global desalinated water output `D` (Jones et al., 2019). Source-informed assumptions (not measured rates): `g_global`, `G_global`, `g2_global`, `phi_solar_food`, `r_solar_food_consumption`, `L_solar_food`, and `R_solar_food`.
 
 ## Quickstart
 

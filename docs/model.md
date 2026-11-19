@@ -30,7 +30,9 @@ The default configuration (`configs/base.toml`) selects `region = "global"` and 
 ### Two-Phase Operational Cost Trajectory
 Annual operational water demand $C(t)$ across years $t \in [1, T]$ is governed by a two-phase compounding growth function:
 
-$$C(t) = (W_{\text{direct}} + k \cdot W_{\text{indirect}}) \cdot (1 + g_1)^{\min(t, G_1)} \cdot (1 + g_2)^{\max(t - G_1, 0)}$$
+```math
+C(t) = (W_{\text{direct}} + k \cdot W_{\text{indirect}}) \cdot (1 + g_1)^{\min(t, G_1)} \cdot (1 + g_2)^{\max(t - G_1, 0)}
+```
 
 where:
 - $W_{\text{direct}}$: Baseline direct annual water volume (m³/yr).
@@ -43,16 +45,25 @@ where:
 ### Technology Deployment and Ramp
 For each potential benefit pathway $i \in \{\text{desal}, \text{solar food}\}$:
 
-$$s_i \sim \text{Bernoulli}(p_i)$$
+```math
+s_i \sim \text{Bernoulli}(p_i)
+```
 
-$$\text{ramp}_i(t) = \begin{cases} 1[t > L_i] & \text{if } R_i = 0 \\ \operatorname{clip}\left(\frac{t - L_i}{R_i}, 0, 1\right) & \text{if } R_i > 0 \end{cases}$$
+```math
+\text{ramp}_i(t) = \begin{cases}
+1[t > L_i] & \text{if } R_i = 0 \\
+\text{clip}\left(\frac{t - L_i}{R_i}, 0, 1\right) & \text{if } R_i > 0
+\end{cases}
+```
 
 where $p_i$ is deployment probability, $L_i$ is adoption lag in years, and $R_i$ is ramp-up duration in years.
 
 ### Net Pathway Benefit
 The net annual water savings credited to AI from pathway $i$ at year $t$ is:
 
-$$B_i(t) = s_i \cdot \alpha_i \cdot \text{Gross}_i \cdot \text{ramp}_i(t) \cdot (1 - \rho_i)$$
+```math
+B_i(t) = s_i \cdot \alpha_i \cdot \text{Gross}_i \cdot \text{ramp}_i(t) \cdot (1 - \rho_i)
+```
 
 where:
 - $\alpha_i \in [0, 1]$: Fractional attribution share credited to AI innovations.
@@ -60,22 +71,32 @@ where:
 
 ### Gross Pathway Potentials
 1. **Desalination Output:**
-   $$\text{Gross}_{\text{desal}} = D \cdot \theta$$
+   ```math
+   \text{Gross}_{\text{desal}} = D \cdot \theta
+   ```
    where $D$ is global desalinated output (m³/yr) and $\theta$ is the fractional increase in that output from cost and energy improvements, from all causes. The AI share of the benefit is applied separately through $\alpha$. Desalination adds supply; it does not reduce consumption.
 
 2. **Electro-Agriculture / Solar Food Synthesis:**
-   $$\text{Gross}_{\text{solar food}} = \phi \cdot A \cdot (1 - r)$$
+   ```math
+   \text{Gross}_{\text{solar food}} = \phi \cdot A \cdot (1 - r)
+   ```
    where $A$ is baseline agricultural water use on the chosen basis (crop blue-water consumption, or irrigation withdrawal), $\phi$ is the share of $A$ displaced, and $r$ is the water intensity of the solar-driven food system relative to conventional production (0 = none, 1 = equal).
 
 ### Cumulative Balance and Break-Even Criteria
 The cumulative net water balance from year 1 to year $t$ is:
 
-$$N(t) = \sum_{\tau=1}^t \left( \sum_i B_i(\tau) - C(\tau) \right)$$
+```math
+N(t) = \sum_{\tau=1}^t \left( \sum_i B_i(\tau) - C(\tau) \right)
+```
 
 - **Sustained Break-Even Year ($t^*$):** The earliest year such that cumulative balance stays non-negative for all subsequent years through horizon $T$:
-  $$t^* = \min \{ t \in [1, T] : N(\tau) \ge 0 \quad \forall \tau \in [t, T] \}$$
+```math
+t^* = \min \{ t \in [1, T] : N(\tau) \ge 0 \quad \forall \tau \in [t, T] \}
+```
 - **Annual Crossover Year:** The earliest individual year where annual benefit meets or exceeds annual cost:
-  $$t_{\text{cross}} = \min \left\{ t \in [1, T] : \sum_i B_i(t) \ge C(t) \right\}$$
+```math
+t_{\text{cross}} = \min \left\{ t \in [1, T] : \sum_i B_i(t) \ge C(t) \right\}
+```
 - **Horizon Net Balance ($N(T)$):** Cumulative freshwater surplus or deficit at the terminal simulation year $T$.
 
 ---
