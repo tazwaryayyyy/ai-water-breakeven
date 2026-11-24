@@ -26,3 +26,5 @@ MANIFEST
 htmlcov/
 results*/
 scratch/
+
+*.zip
