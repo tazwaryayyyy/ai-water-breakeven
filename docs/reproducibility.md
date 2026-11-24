@@ -16,9 +16,27 @@ This document specifies the exact environment, execution sequence, and parameter
 
 ### Installation
 
+Clone the repository and check out the exact release used to generate the archived results:
+
 ```bash
 git clone https://github.com/tazwaryayyyy/ai-water-breakeven.git
 cd ai-water-breakeven
+
+git fetch --tags
+git checkout --detach v0.3.0
+
+git rev-parse HEAD
+```
+
+Expected commit:
+
+```text
+c47b2af18f5e33758c22556b2f3ebc9c7749f651
+```
+
+Install the project and development dependencies:
+
+```bash
 pip install -e ".[dev]"
 ```
 
@@ -29,7 +47,6 @@ ruff check .
 ruff format --check .
 pytest -v
 ```
-
 ---
 
 ## 2. Scientific Framing and Parameter Basis
