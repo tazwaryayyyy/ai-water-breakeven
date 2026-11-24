@@ -1,9 +1,11 @@
 """Tests for CLI subcommands: validate, run, figures, and reproduce."""
 
 import json
+import sys
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from ai_water_breakeven import cli
 from ai_water_breakeven.cli import (
@@ -27,6 +29,8 @@ class DummyArgs:
         self.horizon = kwargs.get("horizon", 20)
         self.strict = kwargs.get("strict", False)
         self.allow_mixed_basis = kwargs.get("allow_mixed_basis", False)
+        for k, v in kwargs.items():
+            setattr(self, k, v)
 
 
 def test_cli_validate():
@@ -202,13 +206,147 @@ def test_cli_reproduce_threshold_horizon_capped(tmp_path, monkeypatch):
     assert seen == [30, 30, 15, 15]
 
 
-def test_cli_threshold_samples_notice(tmp_path, capsys):
-    args = DummyArgs(out_dir=str(tmp_path / "th_notice"), samples=100)
-    args.grid, args.n_per_cell, args.x, args.y = 2, 50, "g_global", "phi_solar_food"
-    assert cmd_threshold(args) == 0
-    err = capsys.readouterr().err
-    assert "--n-per-cell" in err
-    assert "--samples is ignored" in err
+def test_cli_threshold_samples_flag_rejected(monkeypatch):
+    """The threshold CLI command rejects --samples and accepts --n-per-cell."""
+    monkeypatch.setattr(sys, "argv", ["ai-water-breakeven", "threshold", "--samples", "500"])
+    with pytest.raises(SystemExit) as exc_info:
+        cli.main()
+    assert exc_info.value.code != 0
+
+
+def test_cli_calendar_year_and_metadata_completeness(tmp_path):
+    """Test calendar-year trajectory mapping and metadata completeness across commands."""
+    out_dir = tmp_path / "meta_test"
+    args = DummyArgs(out_dir=str(out_dir), samples=200, horizon=15)
+    assert cmd_run(args) == 0
+
+    cost_df = pd.read_csv(out_dir / "cost_trajectory.csv")
+    assert "calendar_year" in cost_df.columns
+    assert (cost_df["calendar_year"] == 2027 + cost_df["year"]).all()
+
+    nb_df = pd.read_csv(out_dir / "net_balance_by_horizon.csv")
+    assert "calendar_year" in nb_df.columns
+    assert (nb_df["calendar_year"] == 2027 + nb_df["horizon"]).all()
+
+    cond_df = pd.read_csv(out_dir / "conditions.csv")
+    assert "calendar_year" in cond_df.columns
+    assert (cond_df["calendar_year"] == 2027 + cond_df["conditions_horizon"]).all()
+
+    with open(out_dir / "run_metadata.json", "r", encoding="utf-8") as f:
+        meta = json.load(f)
+
+    for field in (
+        "git_commit",
+        "git_tag",
+        "working_tree_clean",
+        "timestamp_utc",
+        "software_version",
+        "package_versions",
+        "seed",
+        "sample_count",
+        "time_horizon",
+        "baseline_year",
+        "region",
+        "basis",
+        "cost_scope",
+        "sha256_parameters_csv",
+        "sha256_config_toml",
+        "placeholder_inputs_used",
+        "cli_arguments",
+    ):
+        assert field in meta
+
+    assert meta["software_version"] == "0.3.0"
+    assert meta["baseline_year"] == 2027
+
+
+def test_cli_figures_knockouts_threshold_write_metadata(tmp_path):
+    """Ensure figures, knockouts, and threshold commands all generate run_metadata.json."""
+    figs_out = tmp_path / "figs_meta"
+    ko_out = tmp_path / "ko_meta"
+    th_out = tmp_path / "th_meta"
+
+    args_figs = DummyArgs(out_dir=str(figs_out), samples=100, horizon=15)
+    assert cmd_figures(args_figs) == 0
+    assert (figs_out / "run_metadata.json").is_file()
+
+    args_ko = DummyArgs(out_dir=str(ko_out), samples=100, horizon=15)
+    assert cmd_knockouts(args_ko) == 0
+    assert (ko_out / "run_metadata.json").is_file()
+
+    args_th = DummyArgs(out_dir=str(th_out), samples=100, horizon=15)
+    args_th.grid, args_th.n_per_cell = 2, 20
+    args_th.x, args_th.y = "g_global", "phi_solar_food"
+    assert cmd_threshold(args_th) == 0
+    assert (th_out / "run_metadata.json").is_file()
+
+    with open(th_out / "run_metadata.json", "r", encoding="utf-8") as f:
+        th_meta = json.load(f)
+    assert "threshold_settings" in th_meta
+    assert th_meta["threshold_settings"]["reporting_horizon"] == 15
+    assert th_meta["threshold_settings"]["evaluation_horizon"] == 50
+
+
+def test_cli_threshold_validation_errors(tmp_path):
+    """cmd_threshold produces informative validation errors for invalid horizons."""
+    out_dir = str(tmp_path / "th_val")
+
+    # non-positive horizon
+    args = DummyArgs(out_dir=out_dir, horizon=0)
+    args.x, args.y, args.grid, args.n_per_cell = "g_global", "phi_solar_food", 2, 20
+    assert cmd_threshold(args) == 1
+
+    # eval_horizon < horizon
+    args = DummyArgs(out_dir=out_dir, horizon=30)
+    args.eval_horizon = 20
+    args.x, args.y, args.grid, args.n_per_cell = "g_global", "phi_solar_food", 2, 20
+    assert cmd_threshold(args) == 1
+
+    # horizon > model_horizon (50)
+    args = DummyArgs(out_dir=out_dir, horizon=60)
+    args.x, args.y, args.grid, args.n_per_cell = "g_global", "phi_solar_food", 2, 20
+    assert cmd_threshold(args) == 1
+
+
+def test_cli_reproduce_threshold_settings_exposure(tmp_path, monkeypatch):
+    """cmd_reproduce properly passes exposed threshold settings to cmd_threshold."""
+    captured = {}
+
+    def fake_threshold(args):
+        captured["x"] = args.x
+        captured["y"] = args.y
+        captured["grid"] = args.grid
+        captured["n_per_cell"] = args.n_per_cell
+        captured["eval_horizon"] = args.eval_horizon
+        captured["log"] = args.log
+        captured["conditional"] = args.conditional
+        return 0
+
+    monkeypatch.setattr(cli, "cmd_threshold", fake_threshold)
+    monkeypatch.setattr(cli, "cmd_run", lambda args: 0)
+    monkeypatch.setattr(cli, "cmd_figures", lambda args: 0)
+    monkeypatch.setattr(cli, "cmd_knockouts", lambda args: 0)
+
+    args = DummyArgs(
+        out_dir=str(tmp_path / "repr_exp"),
+        samples=50,
+        horizon=50,
+        threshold_x="alpha_solar_food",
+        threshold_y="phi_solar_food",
+        threshold_grid=15,
+        threshold_n_per_cell=5000,
+        threshold_eval_horizon=50,
+        threshold_log=True,
+        threshold_conditional="solar_food",
+    )
+    assert cmd_reproduce(args) == 0
+    assert captured["x"] == "alpha_solar_food"
+    assert captured["y"] == "phi_solar_food"
+    assert captured["grid"] == 15
+    assert captured["n_per_cell"] == 5000
+    assert captured["eval_horizon"] == 50
+    assert captured["log"] is True
+    assert captured["conditional"] == "solar_food"
 
 
 def test_cli_knockouts_matches_reference_table(tmp_path):

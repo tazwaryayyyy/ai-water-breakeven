@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ai-water-breakeven"
-version = "0.1.0"
+version = "0.3.0"
 description = "Monte Carlo scenario model for AI water use and AI-enabled water benefits (illustrative: most inputs are placeholders)"
 readme = "README.md"
 requires-python = ">=3.11"

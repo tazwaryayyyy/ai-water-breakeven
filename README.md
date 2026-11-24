@@ -1,10 +1,11 @@
 # AI Water Break-Even
 
-Monte Carlo scenario model of the conditions under which water benefits attributed to AI would offset the water used by AI compute. The two benefit pathways are desalination, where cost and energy gains add supply, and solar-driven food production that displaces crop water use.
+Monte Carlo scenario model examining the conditions under which water benefits attributed to AI would offset the water used by AI compute. The two benefit pathways are desalination, where cost and energy gains add supply, and solar-driven food production that displaces agricultural crop water use.
 
-Equations, definitions and limitations: [docs/model.md](docs/model.md).
+Full formulation, equations, definitions, and limitations: [docs/model.md](docs/model.md).  
+Step-by-step reproduction guide: [docs/reproducibility.md](docs/reproducibility.md).
 
-> Status: Deployment probabilities (`p_*`), counterfactual AI attribution (`alpha_*`), rebound (`rho_*`), and desalination improvement rates remain exploratory placeholders (`PLACEHOLDER` in `data/parameters.csv`). Unconditional joint probabilities (e.g., break-even across all runs) must not be cited as real-world forecasts. The analytical findings of this repository are the conditional-on-deployment trajectories, two-parameter break-even thresholds, structural knockouts, and sensitivity diagnostics. Sourced baseline inputs: global AI water baseline (Li et al., 2025), global agricultural blue-water consumption baseline `A` (Chukalla et al., 2025; Mekonnen and Hoekstra, 2011), and global desalinated water output `D` (Jones et al., 2019). Source-informed assumptions (not measured rates): `g_global`, `G_global`, `g2_global`, `phi_solar_food`, `r_solar_food_consumption`, `L_solar_food`, and `R_solar_food`.
+> **Status Notice:** Deployment probabilities (`p_*`), counterfactual AI attribution shares (`alpha_*`), rebound factors (`rho_*`), and desalination efficiency gains (`theta_*`) remain exploratory placeholders (`PLACEHOLDER` in `data/parameters.csv`). Unconditional joint probabilities (e.g. break-even across all simulation runs) must not be cited as real-world forecasts. The analytical findings of this repository are the conditional-on-deployment trajectories, two-parameter break-even thresholds, structural knockouts, and sensitivity diagnostics. Sourced baseline inputs: global AI water baseline (Li et al., 2025), global agricultural blue-water consumption baseline `A` (Chukalla et al., 2025; Mekonnen and Hoekstra, 2011), and global desalinated water output `D` (Jones et al., 2019). Source-informed assumptions (not measured empirical rates): `g_global`, `G_global`, `g2_global`, `phi_solar_food`, `r_solar_food_consumption`, `L_solar_food`, and `R_solar_food`.
 
 ## Quickstart
 
@@ -32,8 +33,8 @@ Validate parameter distributions and run a 100,000-draw Monte Carlo simulation o
 # Validate input schema and physical consistency
 ai-water-breakeven validate
 
-# Execute baseline simulation (global withdrawal, N=100,000, T=50)
-ai-water-breakeven run --out-dir results --samples 100000 --horizon 50
+# Execute headline consumption-basis simulation (N=100,000, T=50)
+ai-water-breakeven run --region global --basis consumption --samples 100000 --horizon 50 --out-dir results
 ```
 
 To reproduce all runnable scenarios, figures, knockouts, and threshold maps:
@@ -42,7 +43,7 @@ To reproduce all runnable scenarios, figures, knockouts, and threshold maps:
 ai-water-breakeven reproduce --out-dir results
 ```
 
-For illustrative simulation outputs and parameter sensitivity rankings, see `summary.json` and `sourcing_priority.csv`.
+For simulation outputs and parameter sensitivity rankings, see `summary.json`, `summary.csv`, and `sourcing_priority.csv`.
 
 ## Model Formulation
 
@@ -58,9 +59,14 @@ The **sustained break-even year** $t^*$ is defined as the earliest year after wh
 
 $$t^* = \min \{ t \in [1, T] : N(\tau) \ge 0 \quad \forall \tau \in [t, T] \}$$
 
+### Calendar-Year Mapping
+
+- **Baseline Reference Year:** **2027** ($t = 0$).
+- **Projection Steps:** $t = 1$ through $t = 50$ represent calendar years **2028 through 2077** (50 annual compounding steps following the baseline). 2027 is the baseline reference year, followed by 50 discrete annual increments.
+
 ### Operational Cost Trajectory
 
-Data center water demand follows a two-phase growth path reflecting rapid near-term scaling followed by a long-term transition rate:
+Data center water demand follows a two-phase compounding growth path reflecting rapid near-term scaling followed by a long-term transition rate:
 
 $$C(t) = (W_{\text{direct}} + k \cdot W_{\text{indirect}}) \cdot (1 + g_1)^{\min(t, G_1)} \cdot (1 + g_2)^{\max(t - G_1, 0)}$$
 
@@ -77,59 +83,58 @@ For each benefit pathway $i \in \{\text{desal}, \text{solar food}\}$:
 $$B_i(t) = s_i \cdot \alpha_i \cdot \text{Gross}_i \cdot \text{ramp}_i(t) \cdot (1 - \rho_i)$$
 
 - $s_i \sim \text{Bernoulli}(p_i)$: Binary deployment success flag.
-- $\alpha_i \in [0, 1]$: Fractional credit attributed to AI.
+- $\alpha_i \in [0, 1]$: Constant fractional credit attributed to AI (constant attribution assumption; acceleration dynamics noted as future work).
 - $\rho_i \ge 0$: Rebound effect consumption fraction.
 - $\text{ramp}_i(t)$: Piecewise linear adoption ramp starting after lag $L_i$ and taking $R_i$ years to reach full deployment.
-- Desalination: gross benefit $D$ times $\theta$, where $D$ is global desalinated output (m3/yr) and $\theta$ is the fractional increase in that output from cost and energy improvements, from all causes. The AI share of the benefit is applied separately through $\alpha$. Desalination adds supply; it does not reduce consumption.
-- Solar food: gross benefit $\phi$ times $A$ times $(1 - r)$, where $A$ is baseline agricultural water use on the chosen basis (crop blue-water consumption, or irrigation withdrawal), $\phi$ is the share of $A$ displaced, and $r$ is the water intensity of the solar-driven food system relative to conventional production (0 = none, 1 = equal).
+- **Desalination:** Gross benefit $D \cdot \theta$, where $D$ is global desalinated output (m³/yr, Jones et al. 2019) and $\theta$ is the fractional increase in output from cost and energy improvements from all causes. The AI share is applied separately through $\alpha$. Desalination adds supply; it does not reduce consumption (explicit supply-credit interpretation).
+- **Solar food:** Gross benefit $\phi \cdot A \cdot (1 - r)$, where $A$ is baseline agricultural crop blue-water consumption ($A \approx 1.08 \times 10^{12} \text{ m}^3/\text{yr}$ from Chukalla et al. 2025 and Mekonnen & Hoekstra 2011), $\phi$ is the share of $A$ displaced, and $r$ is the water intensity of the solar food system relative to conventional production (0 = none, 1 = equal).
 
 ## Accounting Rules and Scope Safeguards
 
 1. **Physical Basis Consistency:**
-   - `withdrawal`: Total volume extracted from water sources.
-   - `consumption`: Volume evaporated or permanently incorporated into products. If a pathway's sampled gross benefit is identically zero (for example, an unset sentinel input), the model detects it and outputs a `basis_notice`; with the current inputs no pathway is zero.
-   - Mixing withdrawal and consumption within a single scenario is disallowed by default.
-   - The default config (`configs/base.toml`) selects `global` + `withdrawal`, where the agricultural denominator rows (`A_solar_food`, `r_solar_food`) are MISSING; the sourced consumption-basis analysis uses `--region global --basis consumption`.
+   - `withdrawal`: Total volume extracted from surface/groundwater sources.
+   - `consumption`: Volume evaporated or permanently incorporated into products.
+   - Mixing withdrawal and consumption within a single scenario is disallowed.
+   - The default configuration file (`configs/base.toml`) selects `global` + `withdrawal`, where agricultural withdrawal rows carry `MISSING` sources. The verified headline research findings use `--region global --basis consumption`.
 
 2. **Regional Scopes:**
-   - `global`: Fully runnable. Combines Scope 1 and Scope 2 operational water from Li et al. (2025) with global efficiency pathways.
+   - `global`: Fully runnable. Combines Scope 1 and Scope 2 operational water from Li et al. (2025) with global benefit pathways.
    - `us`: Reserved and non-runnable. US data center consumption parameters are included in `data/parameters.csv` (17.4B gallons direct, 211B gallons indirect electricity for 2023, LBNL-2001637), but US-specific benefit pathways are not cataloged. Comparing US costs against global benefits is blocked during validation.
 
 3. **Dominance Auditing:**
-   - During sensitivity analysis, any parameter with absolute Partial Rank Correlation Coefficient $|PRCC| > 0.85$ trips a `dominance_warning` in `sourcing_priority.csv` and triggers a console warning during `ai-water-breakeven run`.
-   - `breakeven_dominance_warning` separately flags any row (including deployment draws) whose absolute break-even correlation exceeds 0.85; pooled `p_*` correlations are mediated by the deployment draws, so consult `abs_corr_breakeven_given_solar_food` for timing among deployed runs.
+   - Any parameter with $|PRCC| > 0.85$ trips a `dominance_warning` in `sourcing_priority.csv` and triggers a console notice.
+   - `breakeven_dominance_warning` flags rows (including realized deployment draws) with absolute break-even correlation $> 0.85$.
+   - Consult `abs_corr_breakeven_given_solar_food` for timing sensitivity among deployed runs.
 
 ## CLI Reference
 
-Common defaults are `--parameters data/parameters.csv`, `--config configs/base.toml`, `--region None` and `--basis None` (the config selects `global` and `withdrawal`), and false `--strict` and `--allow-mixed-basis`. For `--samples` and the run/figures/knockouts/reproduce `--horizon`, `None` selects the config values `N = 100000` and `T = 50`. For `threshold`, `--samples` is ignored (cell size is set by `--n-per-cell`); passing it prints a notice to stderr.
-
 | Command | Flags | Defaults | Description |
 | :--- | :--- | :--- | :--- |
-| `validate` | `[--parameters PARAMETERS] [--config CONFIG] [--strict] [--allow-mixed-basis] [--region {global,us}] [--basis {withdrawal,consumption}]` | Common defaults. | Checks parameter schema bounds, physical basis consistency, and unverified source flags. |
-| `run` | `[--parameters PARAMETERS] [--config CONFIG] [--strict] [--allow-mixed-basis] [--region {global,us}] [--basis {withdrawal,consumption}] [--out-dir OUT_DIR] [--samples SAMPLES] [--horizon HORIZON]` | `--out-dir results`; `--samples None` (100000); `--horizon None` (50). | Executes Monte Carlo simulation; writes `summary.csv`, `prcc.csv`, `sourcing_priority.csv`, and trajectory files. |
-| `figures` | `[--parameters PARAMETERS] [--config CONFIG] [--strict] [--allow-mixed-basis] [--region {global,us}] [--basis {withdrawal,consumption}] [--out-dir OUT_DIR] [--samples SAMPLES] [--horizon HORIZON]` | `--out-dir results`; `--samples None` (100000); `--horizon None` (50). | Generates publication figures (`fig1` through `fig5`, `fig8`) in PNG (300 DPI) and SVG. |
-| `knockouts` | `[--parameters PARAMETERS] [--config CONFIG] [--strict] [--allow-mixed-basis] [--region {global,us}] [--basis {withdrawal,consumption}] [--out-dir OUT_DIR] [--samples SAMPLES] [--horizon HORIZON]` | `--out-dir results`; `--samples None` (100000); `--horizon None` (50). | Runs Common-Random-Number structural knockouts (e.g., zero rebound, no delay, flat cost); produces `fig6_knockouts`. For horizons below 10 years the figure falls back to P(never break-even within T). |
-| `threshold` | `[--parameters PARAMETERS] [--config CONFIG] [--strict] [--allow-mixed-basis] [--region {global,us}] [--basis {withdrawal,consumption}] [--out-dir OUT_DIR] [--samples SAMPLES] [--x X] [--y Y] [--horizon HORIZON] [--grid GRID] [--n-per-cell N_PER_CELL] [--x-range LO HI] [--y-range LO HI] [--log] [--conditional {none,solar_food,desal,both}] [--eval-horizon EVAL_HORIZON]` | `--out-dir results`; `--samples None`; `--x g_global`; `--y phi_solar_food`; `--horizon 30`; `--grid 15`; `--n-per-cell 5000`; `--x-range None`; `--y-range None`; `--log` false; `--conditional none`; `--eval-horizon None`. | Evaluates 2D break-even parameter response surfaces over shared base draws; produces `fig7_threshold_map`. Optional range overrides, log-spacing, conditioning on deployment, and a longer evaluation horizon. `--samples` is ignored with a stderr notice. |
-| `reproduce` | `[--parameters PARAMETERS] [--config CONFIG] [--strict] [--allow-mixed-basis] [--region {global,us}] [--basis {withdrawal,consumption}] [--out-dir OUT_DIR] [--samples SAMPLES] [--horizon HORIZON]` | `--out-dir results`; `--samples None` (100000); `--horizon None` (50). | Runs complete pipeline across all runnable scenario configurations and records run manifests. |
+| `validate` | `[--parameters PARAMETERS] [--config CONFIG] [--strict] [--allow-mixed-basis] [--region {global,us}] [--basis {withdrawal,consumption}]` | `data/parameters.csv`, `configs/base.toml` | Checks parameter schema bounds, physical basis consistency, and unverified source flags. `--strict` rejects unverified inputs. |
+| `run` | `[--parameters PARAMETERS] [--config CONFIG] [--strict] [--allow-mixed-basis] [--region {global,us}] [--basis {withdrawal,consumption}] [--out-dir OUT_DIR] [--samples SAMPLES] [--horizon HORIZON]` | `--out-dir results`, `--samples 100000`, `--horizon 50` | Executes Monte Carlo simulation; writes `summary.csv`, `prcc.csv`, `sourcing_priority.csv`, trajectory files, and `run_metadata.json`. |
+| `figures` | `[--parameters PARAMETERS] [--config CONFIG] [--strict] [--allow-mixed-basis] [--region {global,us}] [--basis {withdrawal,consumption}] [--out-dir OUT_DIR] [--samples SAMPLES] [--horizon HORIZON]` | `--out-dir results`, `--samples 100000`, `--horizon 50` | Generates publication figures (`fig1` through `fig5`, `fig8`) in PNG (300 DPI) and SVG. |
+| `knockouts` | `[--parameters PARAMETERS] [--config CONFIG] [--strict] [--allow-mixed-basis] [--region {global,us}] [--basis {withdrawal,consumption}] [--out-dir OUT_DIR] [--samples SAMPLES] [--horizon HORIZON]` | `--out-dir results`, `--samples 100000`, `--horizon 50` | Runs Common-Random-Number structural knockouts; produces `fig6_knockouts`. |
+| `threshold` | `[--parameters PARAMETERS] [--config CONFIG] [--strict] [--allow-mixed-basis] [--region {global,us}] [--basis {withdrawal,consumption}] [--out-dir OUT_DIR] [--x X] [--y Y] [--horizon HORIZON] [--eval-horizon EVAL_HORIZON] [--grid GRID] [--n-per-cell N_PER_CELL] [--x-range LO HI] [--y-range LO HI] [--log] [--conditional {none,solar_food,desal,both}]` | `--out-dir results`, `--x g_global`, `--y phi_solar_food`, `--horizon 30`, `--eval-horizon 50`, `--grid 15`, `--n-per-cell 5000`, `--log false`, `--conditional none` | Evaluates 2D break-even parameter response surfaces over shared base draws; produces `fig7_threshold_map`. Uses `--n-per-cell` for sample size per grid cell (`--samples` is rejected). |
+| `reproduce` | `[--parameters PARAMETERS] [--config CONFIG] [--strict] [--allow-mixed-basis] [--region {global,us}] [--basis {withdrawal,consumption}] [--out-dir OUT_DIR] [--samples SAMPLES] [--horizon HORIZON] [--threshold-x X] [--threshold-y Y] [--threshold-horizon HORIZON] [--threshold-eval-horizon EVAL_HORIZON] [--threshold-grid GRID] [--threshold-n-per-cell N_PER_CELL] [--threshold-x-range LO HI] [--threshold-y-range LO HI] [--threshold-log] [--threshold-conditional {none,solar_food,desal,both}]` | `--out-dir results`, `--samples 100000`, `--horizon 50` | Runs complete reproduction pipeline across runnable scenario combinations, exposes all threshold controls, and records manifests. |
 
 ## Generated Artifacts
 
 | File | Description |
 | :--- | :--- |
-| `summary.json` / `.csv` | Horizon break-even probabilities, Wilson confidence intervals, MCSE, $N(T)$ quantiles, benefit shares, and notice disclosures. |
-| `prcc.csv` | Partial Rank Correlation Coefficients of continuous parameters against cumulative net balance $N(T)$. |
-| `tornado.csv` | One-at-a-time low/high sensitivity of the final net balance $N(T)$, ranked by swing, with deterministic distribution-midpoint baselines (no Bernoulli draws). |
-| `sourcing_priority.csv` | Parameters ranked by absolute PRCC with source traceability, confidence tiers, dominance warnings, break-even correlations conditional on solar-food deployment (`abs_corr_breakeven_given_solar_food`), and `breakeven_dominance_warning` flags. |
-| `conditions.csv` | Parameter medians and IQRs stratified by runs achieving sustained break-even by the configured conditions_horizon (default 30). |
-| `cost_trajectory.csv` | Cost percentiles $C(t)$ and compounding ratios $C(t)/C(0)$ at benchmark years (5, 10, 25, 50). |
-| `net_balance_by_horizon.csv` | Cumulative balance $N(t)$ percentiles across comparison horizons. |
+| `summary.json` / `.csv` | Horizon break-even probabilities, Wilson confidence intervals, MCSE, $N(T)$ quantiles, benefit shares, and disclosures. |
+| `prcc.csv` | Partial Rank Correlation Coefficients against cumulative net balance $N(T)$. |
+| `tornado.csv` | One-at-a-time low/high sensitivity on final net balance $N(T)$, ranked by swing, with deterministic distribution-midpoint baselines (no Bernoulli draws). |
+| `sourcing_priority.csv` | Parameters ranked by absolute PRCC with source traceability, confidence tiers, dominance warnings, and break-even correlations conditional on solar-food deployment (`abs_corr_breakeven_given_solar_food`). |
+| `conditions.csv` | Parameter medians and IQRs stratified by runs achieving sustained break-even by the configured reporting horizon (default 30). |
+| `cost_trajectory.csv` | Cost percentiles $C(t)$, compounding ratios $C(t)/C(0)$, and explicit calendar years at benchmark years (5, 10, 25, 50). |
+| `net_balance_by_horizon.csv` | Cumulative balance $N(t)$ percentiles and calendar years across comparison horizons. |
 | `knockouts.csv` | Break-even probabilities across deterministic knockout scenarios. |
-| `conditional.csv` | Break-even probabilities with Wilson intervals, never-share, and break-even year percentiles among runs where solar_food, desal, or either pathway deploys. Rows do not isolate a pathway's contribution (see docs/model.md). |
+| `conditional.csv` | Break-even probabilities with Wilson intervals, never-share, and break-even year percentiles among runs where solar_food, desal, or either pathway deploys. |
 | `threshold_map.csv` | Grid of break-even probabilities across two chosen parameter ranges. |
-| `run_metadata.json` | Execution metadata including git commit hash, timestamp, Python version, random seed, and parameter SHA-256 hashes. |
+| `run_metadata.json` | Execution metadata including Git commit hash, Git tag, working tree cleanliness, execution timestamp, Python and package versions, seed, sample counts, horizons, and input SHA-256 hashes. |
 | `reproduce_status.csv` | Per region/basis combination: ran or skipped, with missing rows for skipped combinations. |
-| `reproduce_manifest.json` | Ran and skipped combinations with their output directories and the publication notice. |
-| `fig1_breakeven_dist`, `fig2_p_breakeven_horizon`, `fig3_net_balance_fan`, `fig4_tornado`, `fig5_scope_comparison`, `fig6_knockouts`, `fig7_threshold_map`, `fig8_breakeven_given_solar_food` (`.png` and `.svg`) | Break-even year distribution; break-even probability by horizon; net balance fan chart; one-at-a-time tornado; scope comparison ($k = 0$ vs $k = 1$); knockout probabilities; two-parameter threshold map; break-even distribution given solar-food deployment. |
+| `reproduce_manifest.json` | Ran and skipped combinations with their output directories and metadata. |
+| `fig1_breakeven_dist`, `fig2_p_breakeven_horizon`, `fig3_net_balance_fan`, `fig4_tornado`, `fig5_scope_comparison`, `fig6_knockouts`, `fig7_threshold_map`, `fig8_breakeven_given_solar_food` (`.png` and `.svg`) | Complete publication figure set in PNG (300 DPI) and vector SVG. |
 
 ## Limitations
 
@@ -140,12 +145,12 @@ Common defaults are `--parameters data/parameters.csv`, `--config configs/base.t
 - **Static Baselines:** Global agricultural water demand ($A$) and desalinated output ($D$) are held static without dynamic climate or demographic feedback.
 - **Independent Sampling:** Inputs are sampled independently (no correlation structure).
 - **No Discounting:** No discounting is applied.
-- **Attribution Shares:** Attribution shares (alpha) are modeling assumptions, not measurements.
-- **Deployment Bound:** Each pathway deploys or does not (one Bernoulli draw per run), so the break-even probability cannot exceed the probability that at least one pathway deploys; use `conditional.csv` for results given deployment.
-- **Desalination Supply:** Desalination adds supply and does not reduce consumption, so on the consumption basis its contribution is a supply credit, separable with the `desal_only` and `solar_food_only` knockouts.
-- **Timing Assumptions:** The solar-food lag and ramp (`L_solar_food`, `R_solar_food`) are assumptions informed by historical diffusion of energy technologies, which may not transfer to a food technology.
+- **Attribution Shares:** Attribution shares (alpha) are constant modeling assumptions, not empirical measurements.
+- **Deployment Bound:** Each pathway deploys or does not (one Bernoulli draw per run), so the break-even probability cannot exceed the probability that at least one pathway deploys.
+- **Desalination Supply:** Desalination adds supply and does not reduce consumption; on the consumption basis its contribution is a supply credit.
+- **Timing Assumptions:** Solar-food lag and ramp (`L_solar_food`, `R_solar_food`) are assumptions informed by historical diffusion of energy technologies.
 
-Longer prose version for the paper: [docs/limitations.md](docs/limitations.md).
+Full limitations discussion: [docs/limitations.md](docs/limitations.md).
 
 ## Citation
 
@@ -154,12 +159,14 @@ Longer prose version for the paper: [docs/limitations.md](docs/limitations.md).
   title  = {AI Water Break-Even: A Monte Carlo Scenario Model},
   author = {Tazwar},
   year   = {2026},
+  version= {0.3.0},
   url    = {https://github.com/tazwaryayyyy/ai-water-breakeven}
 }
 ```
 
-Primary AI water benchmark:
-- Li, P., Yang, J., Islam, M. A., & Ren, S. (2025). "Making AI Less 'Thirsty': Uncovering and Addressing the Secret Water Footprint of AI Models." *Communications of the ACM*, 68(7), 54–61. [DOI: 10.1145/3724499](https://doi.org/10.1145/3724499). Preprint: [arXiv:2304.03271](https://doi.org/10.48550/arXiv.2304.03271).
+Primary benchmarks:
+- Li, P., Yang, J., Islam, M. A., & Ren, S. (2025). "Making AI Less 'Thirsty': Uncovering and Addressing the Secret Water Footprint of AI Models." *Communications of the ACM*, 68(7), 54–61. [DOI: 10.1145/3724499](https://doi.org/10.1145/3724499).
+- Jones, E., Qadir, M., van Vliet, M. T. H., Smakhtin, V., & Kang, S. (2019). "The state of desalination and brine production: A global outlook." *Science of The Total Environment*, 657, 1343–1356. [DOI: 10.1016/j.scitotenv.2018.12.076](https://doi.org/10.1016/j.scitotenv.2018.12.076).
 
 ## License
 

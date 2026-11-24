@@ -1,7 +1,8 @@
 cff-version: 1.2.0
 message: "If you use this model or code, please cite it as below."
 title: "AI Water Break-Even: A Monte Carlo Scenario Model"
-version: 0.1.0
+version: 0.3.0
+date-released: "2026-11-24"
 url: "https://github.com/tazwaryayyyy/ai-water-breakeven"
 authors:
   - name: "Tazwar"
@@ -34,14 +35,20 @@ references:
     doi: "10.1145/3724499"
   - type: article
     authors:
-      - family-names: "Li"
-        given-names: "Pengfei"
-      - family-names: "Yang"
-        given-names: "Jianyi"
-      - family-names: "Islam"
-        given-names: "Mohammad A."
-      - family-names: "Ren"
-        given-names: "Shaolei"
-    title: "Making AI Less 'Thirsty': Uncovering and Addressing the Secret Water Footprint of AI Models"
-    year: 2023
-    url: "https://doi.org/10.48550/arXiv.2304.03271"
+      - family-names: "Jones"
+        given-names: "Edward"
+      - family-names: "Qadir"
+        given-names: "Manzoor"
+      - family-names: "van Vliet"
+        given-names: "Michelle T.H."
+      - family-names: "Smakhtin"
+        given-names: "Vladimir"
+      - family-names: "Kang"
+        given-names: "Seong-mu"
+    title: "The state of desalination and brine production: A global outlook"
+    journal: "Science of The Total Environment"
+    volume: 657
+    year: 2019
+    start: 1343
+    end: 1356
+    doi: "10.1016/j.scitotenv.2018.12.076"

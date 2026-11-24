@@ -75,10 +75,71 @@ def _git_commit() -> str:
         return "unknown_or_uncommitted"
 
 
-def _metadata(cfg: Dict[str, Any], p_path: Path, c_path: Path, res: Any) -> Dict[str, Any]:
-    return {
+def _git_tag() -> str | None:
+    try:
+        out = subprocess.run(
+            ["git", "describe", "--tags", "--exact-match"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        return out if out else None
+    except Exception:
+        return None
+
+
+def _git_clean() -> bool:
+    try:
+        out = subprocess.run(
+            ["git", "status", "--porcelain"], capture_output=True, text=True, check=True
+        ).stdout.strip()
+        return len(out) == 0
+    except Exception:
+        return False
+
+
+def _metadata(
+    cfg: Dict[str, Any],
+    p_path: Path,
+    c_path: Path,
+    res: Any | None = None,
+    *,
+    region: str = "global",
+    basis: str = "withdrawal",
+    n_samples: int | None = None,
+    t_horizon: int | None = None,
+    start_year: int | None = None,
+    cost_scope: str | None = None,
+    has_placeholder: bool | None = None,
+    is_mixed_basis: bool | None = None,
+    cli_args: list[str] | None = None,
+    threshold_settings: Dict[str, Any] | None = None,
+) -> Dict[str, Any]:
+    n = n_samples if n_samples is not None else (res.n_samples if res else cfg.get("N", 100000))
+    t = t_horizon if t_horizon is not None else (res.t_horizon if res else cfg.get("T", 50))
+    yr = (
+        start_year
+        if start_year is not None
+        else (getattr(res, "start_year", None) or cfg.get("start_year", 2027))
+    )
+    scope = (
+        cost_scope
+        if cost_scope is not None
+        else (
+            res.cost_scope
+            if res
+            else ("scope 1+2 combined" if region == "global" else "direct only")
+        )
+    )
+    ph = has_placeholder if has_placeholder is not None else (res.has_placeholder if res else False)
+    mix = is_mixed_basis if is_mixed_basis is not None else (res.is_mixed_basis if res else False)
+
+    meta = {
         "git_commit": _git_commit(),
+        "git_tag": _git_tag(),
+        "working_tree_clean": _git_clean(),
         "timestamp_utc": pd.Timestamp.now(tz="UTC").isoformat(),
+        "software_version": ai_water_breakeven.__version__,
         "package_versions": {
             "ai_water_breakeven": ai_water_breakeven.__version__,
             "python": sys.version.split()[0],
@@ -88,13 +149,22 @@ def _metadata(cfg: Dict[str, Any], p_path: Path, c_path: Path, res: Any) -> Dict
             "matplotlib": matplotlib.__version__,
         },
         "seed": cfg.get("seed", 42),
+        "sample_count": n,
+        "time_horizon": t,
+        "baseline_year": yr,
+        "region": region,
+        "basis": basis,
+        "cost_scope": scope,
         "sha256_parameters_csv": _file_sha256(p_path),
         "sha256_config_toml": _file_sha256(c_path),
-        "placeholder_inputs_used": res.has_placeholder,
-        "mixed_basis_used": res.is_mixed_basis,
-        "cost_scope": res.cost_scope,
-        "publication_notice": PLACEHOLDER_NOTICE if res.has_placeholder else None,
+        "placeholder_inputs_used": ph,
+        "mixed_basis_used": mix,
+        "publication_notice": PLACEHOLDER_NOTICE if ph else None,
+        "cli_arguments": cli_args or sys.argv,
     }
+    if threshold_settings is not None:
+        meta["threshold_settings"] = threshold_settings
+    return meta
 
 
 def load_config(p: Path) -> Dict[str, Any]:
@@ -141,6 +211,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     t_h, n_s = args.horizon or cfg.get("T", 50), args.samples or cfg.get("N", 100000)
     region, basis = _scenario_dimensions(cfg, args)
     k_sw = cfg.get("k", 0.0)
+    start_year = cfg.get("start_year", 2027)
     strict, allow_m = (
         args.strict or cfg.get("strict", False),
         args.allow_mixed_basis or cfg.get("allow_mixed_basis", False),
@@ -162,6 +233,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         allow_mixed_basis=allow_m,
         region=region,
         basis=basis,
+        start_year=start_year,
     )
 
     summary = compute_summary_metrics(res)
@@ -181,13 +253,19 @@ def cmd_run(args: argparse.Namespace) -> int:
         res.has_placeholder,
     )
     _write_table(
-        compute_conditions_table(res, cfg.get("conditions_horizon", 30)),
+        compute_conditions_table(res, cfg.get("conditions_horizon", 30), start_year=start_year),
         out / "conditions.csv",
         res.has_placeholder,
     )
-    _write_table(compute_cost_trajectory(res), out / "cost_trajectory.csv", res.has_placeholder)
     _write_table(
-        compute_net_balance_by_horizon(res), out / "net_balance_by_horizon.csv", res.has_placeholder
+        compute_cost_trajectory(res, start_year=start_year),
+        out / "cost_trajectory.csv",
+        res.has_placeholder,
+    )
+    _write_table(
+        compute_net_balance_by_horizon(res, start_year=start_year),
+        out / "net_balance_by_horizon.csv",
+        res.has_placeholder,
     )
     sourcing_df = compute_sourcing_priority(res)
     _write_table(sourcing_df, out / "sourcing_priority.csv", res.has_placeholder)
@@ -196,7 +274,19 @@ def cmd_run(args: argparse.Namespace) -> int:
         conditional_df["basis_notice"] = res.basis_notice
     _write_table(conditional_df, out / "conditional.csv", res.has_placeholder)
     with open(out / "run_metadata.json", "w", encoding="utf-8") as f:
-        json.dump(_metadata(cfg, Path(args.parameters), Path(args.config), res), f, indent=2)
+        json.dump(
+            _metadata(
+                cfg,
+                Path(args.parameters),
+                Path(args.config),
+                res,
+                region=region,
+                basis=basis,
+                start_year=start_year,
+            ),
+            f,
+            indent=2,
+        )
     dominant_params = (
         sourcing_df.loc[sourcing_df["dominance_warning"], "parameter"].tolist()
         if "dominance_warning" in sourcing_df
@@ -225,6 +315,7 @@ def cmd_figures(args: argparse.Namespace) -> int:
         args.samples or cfg.get("N", 100000),
     )
     region, basis, seed = (*_scenario_dimensions(cfg, args), cfg.get("seed", 42))
+    start_year = cfg.get("start_year", 2027)
     allow_m = args.allow_mixed_basis or cfg.get("allow_mixed_basis", False)
 
     try:
@@ -249,8 +340,8 @@ def cmd_figures(args: argparse.Namespace) -> int:
         allow_mixed_basis=allow_m,
         region=region,
         basis=basis,
+        start_year=start_year,
     )
-    # Global cost is scope 1+2 combined, so the k=1 run would be identical and unused.
     r1 = (
         None
         if region == "global"
@@ -264,6 +355,7 @@ def cmd_figures(args: argparse.Namespace) -> int:
             allow_mixed_basis=allow_m,
             region=region,
             basis=basis,
+            start_year=start_year,
         )
     )
 
@@ -285,6 +377,20 @@ def cmd_figures(args: argparse.Namespace) -> int:
         mask=r0.deployments["s_solar_food"] == 1,
         label="given solar-food deployment",
     )
+    with open(out / "run_metadata.json", "w", encoding="utf-8") as f:
+        json.dump(
+            _metadata(
+                cfg,
+                Path(args.parameters),
+                Path(args.config),
+                r0,
+                region=region,
+                basis=basis,
+                start_year=start_year,
+            ),
+            f,
+            indent=2,
+        )
     print(f"Figures written to {out}")
     return 0
 
@@ -299,6 +405,7 @@ def cmd_knockouts(args: argparse.Namespace) -> int:
     out.mkdir(parents=True, exist_ok=True)
     region, basis = _scenario_dimensions(cfg, args)
     t_h, n_s = args.horizon or cfg.get("T", 50), args.samples or cfg.get("N", 100000)
+    start_year = cfg.get("start_year", 2027)
     try:
         validate_parameters(
             params,
@@ -320,11 +427,12 @@ def cmd_knockouts(args: argparse.Namespace) -> int:
     rows = []
     baseline_summary: Dict[str, Any] = {}
     baseline_meta: Dict[str, Any] = {}
-    # Stream scenarios so only one result set is alive at a time (peak-memory reduction).
     for name in KNOCKOUT_SCENARIOS:
         samples, deployments = _copy_draws(base_samples, base_deployments)
         _apply_knockout(name, samples, deployments, active)
-        result = _evaluate_samples(active, samples, deployments, t_h, k_sw, region, basis)
+        result = _evaluate_samples(
+            active, samples, deployments, t_h, k_sw, region, basis, start_year=start_year
+        )
         summary = compute_summary_metrics(result)
         if name == "baseline":
             baseline_summary = summary
@@ -347,6 +455,23 @@ def cmd_knockouts(args: argparse.Namespace) -> int:
         cost_scope=baseline_meta["cost_scope"],
         basis_notice=baseline_meta["basis_notice"],
     )
+    with open(out / "run_metadata.json", "w", encoding="utf-8") as f:
+        json.dump(
+            _metadata(
+                cfg,
+                Path(args.parameters),
+                Path(args.config),
+                region=region,
+                basis=basis,
+                n_samples=n_s,
+                t_horizon=t_h,
+                start_year=start_year,
+                cost_scope=baseline_meta["cost_scope"],
+                has_placeholder=baseline_meta["has_placeholder"],
+            ),
+            f,
+            indent=2,
+        )
     print(f"Knockout outputs written to {out}")
     return 0
 
@@ -371,39 +496,77 @@ def cmd_threshold(args: argparse.Namespace) -> int:
     except ValueError as e:
         print(f"Validation failed:\n{e}", file=sys.stderr)
         return 1
-    x_name, y_name = getattr(args, "x", "g_global"), getattr(args, "y", "phi_solar_food")
-    horizon = getattr(args, "horizon", None) or cfg.get("conditions_horizon", 30)
-    grid, n_per_cell = getattr(args, "grid", 15), getattr(args, "n_per_cell", 5000)
+
+    model_horizon = cfg.get("T", 50)
+    x_name = getattr(args, "x", None) or "g_global"
+    y_name = getattr(args, "y", None) or "phi_solar_food"
+    h_arg = getattr(args, "horizon", None)
+    horizon = cfg.get("conditions_horizon", 30) if h_arg is None else h_arg
+    eh_arg = getattr(args, "eval_horizon", None)
+    eval_horizon = model_horizon if eh_arg is None else eh_arg
+    grid = getattr(args, "grid", None) or 15
+    n_per_cell = getattr(args, "n_per_cell", None) or 5000
+    start_year = cfg.get("start_year", 2027)
+
+    if horizon <= 0:
+        print(f"Validation error: Reporting horizon ({horizon}) must be positive.", file=sys.stderr)
+        return 1
+    if eval_horizon <= 0:
+        print(
+            f"Validation error: Evaluation horizon ({eval_horizon}) must be positive.",
+            file=sys.stderr,
+        )
+        return 1
+    if eval_horizon < horizon:
+        print(
+            f"Validation error: Evaluation horizon ({eval_horizon}) must be at least "
+            f"reporting horizon ({horizon}).",
+            file=sys.stderr,
+        )
+        return 1
+    if horizon > model_horizon:
+        print(
+            f"Validation error: Reporting horizon ({horizon}) cannot exceed "
+            f"configured model horizon ({model_horizon}).",
+            file=sys.stderr,
+        )
+        return 1
+    if eval_horizon > model_horizon:
+        print(
+            f"Validation error: Evaluation horizon ({eval_horizon}) cannot exceed "
+            f"configured model horizon ({model_horizon}).",
+            file=sys.stderr,
+        )
+        return 1
 
     x_range = getattr(args, "x_range", None)
     y_range = getattr(args, "y_range", None)
     log_spacing = getattr(args, "log", False)
-    if getattr(args, "samples", None) is not None:
-        print(
-            "notice: --n-per-cell controls threshold cell sample size; --samples is ignored.",
-            file=sys.stderr,
-        )
     conditional = getattr(args, "conditional", "none")
     conditional = None if conditional in (None, "none") else conditional
-    eval_horizon = getattr(args, "eval_horizon", None)
 
-    table = compute_threshold_map(
-        params,
-        x_name,
-        y_name,
-        horizon,
-        grid,
-        n_per_cell,
-        cfg.get("seed", 42),
-        cfg.get("k", 0.0),
-        region,
-        basis,
-        x_range=x_range,
-        y_range=y_range,
-        log_spacing=log_spacing,
-        conditional=conditional,
-        eval_horizon=eval_horizon,
-    )
+    try:
+        table = compute_threshold_map(
+            params,
+            x_name,
+            y_name,
+            horizon,
+            grid,
+            n_per_cell,
+            cfg.get("seed", 42),
+            cfg.get("k", 0.0),
+            region,
+            basis,
+            x_range=x_range,
+            y_range=y_range,
+            log_spacing=log_spacing,
+            conditional=conditional,
+            eval_horizon=eval_horizon,
+        )
+    except ValueError as e:
+        print(f"Threshold computation error:\n{e}", file=sys.stderr)
+        return 1
+
     active, _ = select_scenario_parameters(params, region, basis)
     by_name = {param.name: param for param in active.values()}
     has_placeholder = any(param.is_placeholder_or_missing for param in active.values())
@@ -439,6 +602,36 @@ def cmd_threshold(args: argparse.Namespace) -> int:
         basis_notice=thresh_notice,
         log_spacing=log_spacing,
     )
+    threshold_meta = {
+        "x": x_name,
+        "y": y_name,
+        "reporting_horizon": horizon,
+        "evaluation_horizon": eval_horizon,
+        "grid": grid,
+        "n_per_cell": n_per_cell,
+        "x_range": x_range,
+        "y_range": y_range,
+        "log_spacing": log_spacing,
+        "conditional": conditional,
+    }
+    with open(out / "run_metadata.json", "w", encoding="utf-8") as f:
+        json.dump(
+            _metadata(
+                cfg,
+                Path(args.parameters),
+                Path(args.config),
+                region=region,
+                basis=basis,
+                n_samples=grid * grid * n_per_cell,
+                t_horizon=eval_horizon,
+                start_year=start_year,
+                cost_scope=cost_scope,
+                has_placeholder=has_placeholder,
+                threshold_settings=threshold_meta,
+            ),
+            f,
+            indent=2,
+        )
     print(f"Threshold map written to {out}")
     return 0
 
@@ -455,6 +648,17 @@ def cmd_reproduce(args: argparse.Namespace) -> int:
     combinations = available_combinations(params)
     ordered = [preferred] + [item for item in combinations if item != preferred]
     status_rows, ran, skipped = [], [], []
+
+    # Threshold settings exposed through reproduce
+    th_x = getattr(args, "threshold_x", None) or getattr(args, "x", None) or "g_global"
+    th_y = getattr(args, "threshold_y", None) or getattr(args, "y", None) or "phi_solar_food"
+    th_grid = getattr(args, "threshold_grid", None) or getattr(args, "grid", None) or 15
+    th_n = getattr(args, "threshold_n_per_cell", None) or getattr(args, "n_per_cell", None) or 5000
+    th_xr = getattr(args, "threshold_x_range", None) or getattr(args, "x_range", None)
+    th_yr = getattr(args, "threshold_y_range", None) or getattr(args, "y_range", None)
+    th_log = getattr(args, "threshold_log", False) or getattr(args, "log", False)
+    th_cond = getattr(args, "threshold_conditional", None) or getattr(args, "conditional", "none")
+
     for region, basis in ordered:
         missing = missing_rows_for_combination(params, region, basis)
         if missing:
@@ -482,8 +686,33 @@ def cmd_reproduce(args: argparse.Namespace) -> int:
             print(f"Validation failed:\n{error}", file=sys.stderr)
             return 1
         t_h = local.horizon or cfg.get("T", 50)
+
+        # Threshold reporting horizon defaults to conditions_horizon capped by t_h
+        th_rep_h = getattr(args, "threshold_horizon", None)
+        if th_rep_h is None:
+            th_rep_h = min(cfg.get("conditions_horizon", 30), t_h)
+        else:
+            th_rep_h = min(th_rep_h, t_h)
+
+        # Threshold evaluation horizon defaults to configured model horizon t_h
+        th_eval_h = (
+            getattr(args, "threshold_eval_horizon", None)
+            or getattr(args, "eval_horizon", None)
+            or t_h
+        )
+
         threshold_args = argparse.Namespace(**vars(local))
-        threshold_args.horizon = min(cfg.get("conditions_horizon", 30), t_h)
+        threshold_args.x = th_x
+        threshold_args.y = th_y
+        threshold_args.horizon = th_rep_h
+        threshold_args.eval_horizon = th_eval_h
+        threshold_args.grid = th_grid
+        threshold_args.n_per_cell = th_n
+        threshold_args.x_range = th_xr
+        threshold_args.y_range = th_yr
+        threshold_args.log = th_log
+        threshold_args.conditional = th_cond
+
         for command in (cmd_run, cmd_figures, cmd_knockouts):
             if command(local) != 0:
                 return 1
@@ -494,16 +723,24 @@ def cmd_reproduce(args: argparse.Namespace) -> int:
         ran.append({"region": region, "basis": basis, "out_dir": local.out_dir})
     has_placeholder = any(p.is_placeholder_or_missing for p in params.values())
     _write_table(pd.DataFrame(status_rows), root / "reproduce_status.csv", has_placeholder)
+    reproduce_manifest = {
+        "ran": ran,
+        "skipped": skipped,
+        "publication_notice": PLACEHOLDER_NOTICE if has_placeholder else None,
+        "metadata": _metadata(
+            cfg,
+            Path(args.parameters),
+            Path(args.config),
+            region=preferred[0],
+            basis=preferred[1],
+            n_samples=args.samples or cfg.get("N", 100000),
+            t_horizon=args.horizon or cfg.get("T", 50),
+            start_year=cfg.get("start_year", 2027),
+            has_placeholder=has_placeholder,
+        ),
+    }
     with open(root / "reproduce_manifest.json", "w", encoding="utf-8") as f:
-        json.dump(
-            {
-                "ran": ran,
-                "skipped": skipped,
-                "publication_notice": PLACEHOLDER_NOTICE if has_placeholder else None,
-            },
-            f,
-            indent=2,
-        )
+        json.dump(reproduce_manifest, f, indent=2)
     print(f"Reproduction complete. Skipped combinations: {len(skipped)}")
     return 0
 
@@ -521,15 +758,16 @@ def main() -> None:
         sp.add_argument("--allow-mixed-basis", action="store_true")
         sp.add_argument("--region", choices=["global", "us"], default=None)
         sp.add_argument("--basis", choices=["withdrawal", "consumption"], default=None)
-        if name in ("run", "figures", "knockouts", "threshold", "reproduce"):
+        if name in ("run", "figures", "knockouts", "reproduce"):
             sp.add_argument("--out-dir", default="results")
             sp.add_argument("--samples", type=int, default=None)
-        if name in ("run", "figures", "knockouts", "reproduce"):
             sp.add_argument("--horizon", type=int, default=None)
-        if name == "threshold":
+        elif name == "threshold":
+            sp.add_argument("--out-dir", default="results")
             sp.add_argument("--x", default="g_global")
             sp.add_argument("--y", default="phi_solar_food")
             sp.add_argument("--horizon", type=int, default=30)
+            sp.add_argument("--eval-horizon", dest="eval_horizon", type=int, default=None)
             sp.add_argument("--grid", type=int, default=15)
             sp.add_argument("--n-per-cell", dest="n_per_cell", type=int, default=5000)
             sp.add_argument("--x-range", nargs=2, type=float, default=None, metavar=("LO", "HI"))
@@ -538,7 +776,53 @@ def main() -> None:
             sp.add_argument(
                 "--conditional", choices=["none", "solar_food", "desal", "both"], default="none"
             )
-            sp.add_argument("--eval-horizon", dest="eval_horizon", type=int, default=None)
+        if name == "reproduce":
+            sp.add_argument("--threshold-x", "--x", dest="threshold_x", default=None)
+            sp.add_argument("--threshold-y", "--y", dest="threshold_y", default=None)
+            sp.add_argument("--threshold-horizon", type=int, default=None)
+            sp.add_argument(
+                "--threshold-eval-horizon",
+                "--eval-horizon",
+                dest="threshold_eval_horizon",
+                type=int,
+                default=None,
+            )
+            sp.add_argument(
+                "--threshold-grid", "--grid", dest="threshold_grid", type=int, default=None
+            )
+            sp.add_argument(
+                "--threshold-n-per-cell",
+                "--n-per-cell",
+                dest="threshold_n_per_cell",
+                type=int,
+                default=None,
+            )
+            sp.add_argument(
+                "--threshold-x-range",
+                "--x-range",
+                dest="threshold_x_range",
+                nargs=2,
+                type=float,
+                default=None,
+                metavar=("LO", "HI"),
+            )
+            sp.add_argument(
+                "--threshold-y-range",
+                "--y-range",
+                dest="threshold_y_range",
+                nargs=2,
+                type=float,
+                default=None,
+                metavar=("LO", "HI"),
+            )
+            sp.add_argument("--threshold-log", "--log", dest="threshold_log", action="store_true")
+            sp.add_argument(
+                "--threshold-conditional",
+                "--conditional",
+                dest="threshold_conditional",
+                choices=["none", "solar_food", "desal", "both"],
+                default=None,
+            )
 
     args = p.parse_args()
     cmds = {

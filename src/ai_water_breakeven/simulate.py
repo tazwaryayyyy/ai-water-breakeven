@@ -48,6 +48,7 @@ class SimulationResults:
     is_mixed_basis: bool
     deployments: Dict[str, np.ndarray] = field(default_factory=dict)
     basis_notice: str | None = None
+    start_year: int = 2027
 
 
 def run_simulation(
@@ -61,6 +62,7 @@ def run_simulation(
     allow_mixed_basis: bool = False,
     region: str | None = None,
     basis: str = "withdrawal",
+    start_year: int = 2027,
 ) -> SimulationResults:
     """Execute vectorized Monte Carlo break-even simulation across an (N, T) array."""
     scenario_region, scenario_basis = resolve_region_basis(region or "global", basis, cost_basis)
@@ -81,6 +83,7 @@ def run_simulation(
         k_switch,
         scenario_region,
         scenario_basis,
+        start_year=start_year,
     )
 
 
@@ -92,6 +95,7 @@ def _evaluate_samples(
     k_switch: float,
     scenario_region: str,
     scenario_basis: str,
+    start_year: int = 2027,
 ) -> SimulationResults:
     """Evaluate pre-drawn inputs, keeping sampling separate from scenario modifications."""
     t_steps = np.arange(1, t_horizon + 1)
@@ -172,6 +176,7 @@ def _evaluate_samples(
         False,
         deployments,
         basis_notice,
+        start_year=start_year,
     )
 
 
@@ -254,6 +259,7 @@ def run_knockout_scenarios(
     seed: int = 42,
     region: str = "global",
     basis: str = "withdrawal",
+    start_year: int = 2027,
 ) -> Dict[str, SimulationResults]:
     """Evaluate deterministic knockout columns against one shared Latin-hypercube draw."""
     active, missing = select_scenario_parameters(params, region, basis)
@@ -267,7 +273,7 @@ def run_knockout_scenarios(
         samples, deployments = _copy_draws(base_samples, base_deployments)
         _apply_knockout(name, samples, deployments, active)
         results[name] = _evaluate_samples(
-            active, samples, deployments, t_horizon, k_switch, region, basis
+            active, samples, deployments, t_horizon, k_switch, region, basis, start_year=start_year
         )
     return results
 
@@ -385,15 +391,29 @@ def compute_threshold_map(
 ) -> pd.DataFrame:
     """Map break-even probability by fixing two columns over shared base draws.
 
-    conditional forces the named pathway probability and deployment draw to 1.0;
-    eval_horizon simulates through that year while still counting break-even by horizon.
+    Parameters:
+    - horizon: reporting horizon (the year by which break-even must have occurred).
+    - eval_horizon: evaluation horizon through which the cumulative balance must remain
+      non-negative to qualify as sustained break-even (eval_horizon >= horizon).
+    - conditional: force deployment:
+        'none' (or None): preserve baseline Bernoulli draws;
+        'solar_food': force solar food probability and deployment draw to 1.0;
+        'desal': force desalination probability and deployment draw to 1.0;
+        'both': force both pathways to deploy (probabilities and draws = 1.0).
     """
+    if horizon <= 0:
+        raise ValueError(f"horizon must be positive (got {horizon})")
+    if eval_horizon is not None:
+        if eval_horizon <= 0:
+            raise ValueError(f"eval_horizon must be positive (got {eval_horizon})")
+        if eval_horizon < horizon:
+            raise ValueError(f"eval_horizon ({eval_horizon}) must be at least horizon ({horizon})")
     if grid < 2:
         raise ValueError("grid must be at least 2")
-    if conditional not in (None, "solar_food", "desal", "both"):
-        raise ValueError("conditional must be None, 'solar_food', 'desal', or 'both'")
-    if eval_horizon is not None and eval_horizon < horizon:
-        raise ValueError("eval_horizon must be at least horizon")
+    if conditional not in (None, "none", "solar_food", "desal", "both"):
+        raise ValueError("conditional must be None, 'none', 'solar_food', 'desal', or 'both'")
+    conditional = None if conditional in (None, "none") else conditional
+
     active, missing = select_scenario_parameters(params, region, basis)
     if missing:
         raise ValueError(f"Missing rows for region={region}, basis={basis}: {', '.join(missing)}")
@@ -509,7 +529,6 @@ def _add_probability_metrics(
     """Add point estimate, Wilson interval, count, and non-misleading MCSE fields."""
     probability = count / n_samples
     ci_low, ci_high = wilson_interval(count, n_samples)
-    # Preserve the established p_breakeven_yrH / mcse_yrH column names.
     suffix = label.removeprefix("breakeven_")
     summary[f"p_{label}"] = probability
     summary[f"ci_low_{suffix}"] = ci_low
@@ -517,7 +536,6 @@ def _add_probability_metrics(
     summary[f"count_{suffix}"] = count
     if count == 0 or count == n_samples:
         summary[f"count_display_{suffix}"] = f"{count} of {n_samples} runs"
-    # A zero binomial MCSE is mathematically correct but misleading as a printed uncertainty.
     summary[f"mcse_{suffix}"] = (
         float(np.sqrt(probability * (1.0 - probability) / n_samples))
         if 0 < count < n_samples
@@ -531,7 +549,6 @@ def compute_prcc(sampled_params: Dict[str, np.ndarray], y_target: np.ndarray) ->
     if not keys:
         return pd.DataFrame(columns=["parameter", "prcc"])
     if np.std(y_target) <= 1e-12:
-        # Correlation with a constant target is undefined (e.g. every run never breaks even).
         return pd.DataFrame({"parameter": keys, "prcc": np.nan})
     cols = [rankdata(sampled_params[k]) for k in keys] + [rankdata(y_target)]
     corr = np.corrcoef(np.column_stack(cols), rowvar=False) + np.eye(len(cols)) * 1e-12
@@ -546,8 +563,11 @@ def compute_prcc(sampled_params: Dict[str, np.ndarray], y_target: np.ndarray) ->
     )
 
 
-def compute_cost_trajectory(results: SimulationResults) -> pd.DataFrame:
+def compute_cost_trajectory(
+    results: SimulationResults, start_year: int | None = None
+) -> pd.DataFrame:
     """Report C(t) and C(t)/C(0) percentiles at predefined comparison years."""
+    base_year = results.start_year if start_year is None else start_year
     rows = []
     for year in [5, 10, 25, 50]:
         if year <= results.t_horizon:
@@ -558,7 +578,10 @@ def compute_cost_trajectory(results: SimulationResults) -> pd.DataFrame:
                 out=np.full_like(cost, np.nan),
                 where=results.cost_at_zero != 0,
             )
-            row: Dict[str, Any] = {"year": year}
+            row: Dict[str, Any] = {
+                "year": year,
+                "calendar_year": base_year + year,
+            }
             for percentile in [5, 25, 50, 75, 95]:
                 row[f"C_p{percentile}"] = float(np.nanpercentile(cost, percentile))
                 row[f"C_over_C0_p{percentile}"] = float(np.nanpercentile(ratio, percentile))
@@ -566,12 +589,18 @@ def compute_cost_trajectory(results: SimulationResults) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def compute_net_balance_by_horizon(results: SimulationResults) -> pd.DataFrame:
+def compute_net_balance_by_horizon(
+    results: SimulationResults, start_year: int | None = None
+) -> pd.DataFrame:
     """Report baseline cumulative net-balance percentiles at fixed horizons within T."""
+    base_year = results.start_year if start_year is None else start_year
     rows = []
     for horizon in [10, 20, 30, 50]:
         if horizon <= results.t_horizon:
-            row: Dict[str, Any] = {"horizon": horizon}
+            row: Dict[str, Any] = {
+                "horizon": horizon,
+                "calendar_year": base_year + horizon,
+            }
             for percentile in [5, 25, 50, 75, 95]:
                 row[f"N_p{percentile}"] = float(
                     np.percentile(results.net_balance_trajectories[:, horizon - 1], percentile)
@@ -583,7 +612,8 @@ def compute_net_balance_by_horizon(results: SimulationResults) -> pd.DataFrame:
 RANK_NOTICE = (
     "Ranks depend on the current input ranges and are provisional; pooled break-even "
     "correlations of p_* parameters are mediated (attenuated) by their Bernoulli deployment "
-    "draws s_*, so consult abs_corr_breakeven_given_solar_food for deployed-run timing."
+    "draws s_*, so consult abs_corr_breakeven_given_solar_food for deployed-run timing. "
+    "Desalination may still deploy independently in the solar-food-conditioned subset."
 )
 
 
@@ -767,9 +797,12 @@ def compute_tornado(
 
 
 def compute_conditions_table(
-    results: SimulationResults, conditions_horizon: int = 30
+    results: SimulationResults,
+    conditions_horizon: int = 30,
+    start_year: int | None = None,
 ) -> pd.DataFrame:
     """Compute parameter medians and IQRs stratified by sustained break-even horizon."""
+    base_year = results.start_year if start_year is None else start_year
     mask = (results.be_years <= conditions_horizon) & (~np.isnan(results.be_years))
     n_success = int(np.sum(mask))
     n_failure = int(np.sum(~mask))
@@ -780,6 +813,7 @@ def compute_conditions_table(
             {
                 "parameter": k,
                 "conditions_horizon": conditions_horizon,
+                "calendar_year": base_year + conditions_horizon,
                 "n_success": n_success,
                 "n_failure": n_failure,
                 "success_median": float(np.median(s)) if len(s) else np.nan,

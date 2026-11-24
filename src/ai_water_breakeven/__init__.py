@@ -25,4 +25,4 @@ __all__ = [
     "gallons_to_m3",
     "m3_to_gallons",
 ]
-__version__ = "0.1.0"
+__version__ = "0.3.0"

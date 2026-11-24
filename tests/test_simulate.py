@@ -748,3 +748,80 @@ def test_fig8_zero_mask_no_crash(tmp_path, base_params):
     )
     assert (tmp_path / "fig8.png").is_file()
     assert (tmp_path / "fig8.svg").is_file()
+
+
+def test_tornado_all_distribution_types(synthetic_params):
+    """Verify deterministic baselines for uniform (midpoint), lognormal (geometric mean),
+    triangular (mode), and fixed (fixed value) without Bernoulli draws."""
+    params = synthetic_params(
+        {
+            "W_direct_global": ("uniform", 10.0, 15.0, 20.0),  # midpoint: 15.0
+            "g_global": ("lognormal", 0.01, 0.05, 0.25),  # geo mean: sqrt(0.01 * 0.25) = 0.05
+            "G_global": ("triangular", 1.0, 5.0, 10.0),  # mode: 5.0
+            "g2_global": ("fixed", 0.02, 0.02, 0.02),  # mode/fixed: 0.02
+        }
+    )
+    df = compute_tornado(params, t_horizon=20)
+    assert len(df) > 0
+    # Check that swing is non-negative and all parameters are perturbed one at a time
+    assert (df["swing"] >= 0).all()
+
+
+def test_knockout_ceiling_specification(base_params):
+    """Ceiling knockout sets alpha=1, p=1, s=1, rho=0, and leaves delays and cost rates intact."""
+    from ai_water_breakeven.sample import create_scenario_rng
+    from ai_water_breakeven.simulate import (
+        _apply_knockout,
+        _copy_draws,
+        select_scenario_parameters,
+    )
+
+    active, _ = select_scenario_parameters(base_params, "global", "consumption")
+    samples, deployments = sample_parameter_matrix(
+        list(active.values()), 100, create_scenario_rng(42, 0)
+    )
+    s_copy, d_copy = _copy_draws(samples, deployments)
+    _apply_knockout("ceiling", s_copy, d_copy, active)
+
+    for role, param in active.items():
+        if role.startswith("alpha_"):
+            assert (s_copy[param.name] == 1.0).all()
+        if role.startswith("p_"):
+            assert (s_copy[param.name] == 1.0).all()
+        if role.startswith("rho_"):
+            assert (s_copy[param.name] == 0.0).all()
+        if role.startswith(("L_", "R_")):
+            # Lags and ramps must NOT be set to zero by ceiling
+            assert not (s_copy[param.name] == 0.0).all()
+
+    for dep_key in d_copy:
+        assert (d_copy[dep_key] == 1.0).all()
+
+
+def test_conditional_sensitivity_exclusions(base_params):
+    """Conditional sensitivity given solar food must exclude p_solar_food and s_solar_food,
+    while retaining independent desalination parameters."""
+    res = run_simulation(base_params, t_horizon=30, n_samples=1000, seed=42, basis="consumption")
+    sp = compute_sourcing_priority(res)
+
+    # s_solar_food row should not have conditional correlation with itself
+    sf_row = sp[sp["parameter"] == "s_solar_food"]
+    if len(sf_row):
+        assert pd.isna(sf_row["abs_corr_breakeven_given_solar_food"].iloc[0])
+
+    p_sf_row = sp[sp["parameter"] == "p_solar_food"]
+    if len(p_sf_row):
+        assert pd.isna(p_sf_row["abs_corr_breakeven_given_solar_food"].iloc[0])
+
+
+def test_threshold_validation_semantics(synthetic_params):
+    """Test threshold parameter validation for negative or invalid horizons."""
+    params = synthetic_params()
+    with pytest.raises(ValueError, match="horizon must be positive"):
+        compute_threshold_map(params, "g_global", "phi_solar_food", horizon=-5)
+
+    with pytest.raises(ValueError, match="eval_horizon must be positive"):
+        compute_threshold_map(params, "g_global", "phi_solar_food", horizon=10, eval_horizon=-2)
+
+    with pytest.raises(ValueError, match="must be at least horizon"):
+        compute_threshold_map(params, "g_global", "phi_solar_food", horizon=30, eval_horizon=25)

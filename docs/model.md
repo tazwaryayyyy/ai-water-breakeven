@@ -21,6 +21,11 @@ In the global scenario configuration, baseline values from Li et al. (2025) comb
 - **`region = "global"` (Runnable):** Evaluates combined global Scope 1+2 compute footprints against global desalinated output and agricultural displacement potential.
 - **`region = "us"` (Reserved / Non-runnable):** US data center water parameters are recorded in `data/parameters.csv` for reference (17.4 billion gallons direct, 211 billion gallons indirect electricity consumption for 2023, based on LBNL-2001637). However, benefit pathways are not parameterized at the US scale. Pairing US costs with global benefits produces an invalid comparison and is blocked during parameter validation.
 
+### Calendar-Year Conventions
+- **Baseline Reference Year:** **2027** ($t = 0$).
+- **Compounding Steps:** Simulation time steps $t = 1$ through $t = 50$ represent calendar years **2028 through 2077** (50 annual steps after the baseline). The model does not describe 2027 through 2077 as 50 annual steps; 2027 is the initial condition baseline year, followed by 50 discrete annual growth and benefit increments.
+- Trajectory outputs (`cost_trajectory.csv`, `net_balance_by_horizon.csv`, `conditions.csv`) provide explicit `calendar_year` columns mapped as $\text{calendar\_year} = 2027 + t$.
+
 The default configuration (`configs/base.toml`) selects `region = "global"` and `basis = "withdrawal"`. On the withdrawal basis the agricultural denominator rows (`A_solar_food`, `r_solar_food`) carry MISSING sources; the consumption-basis counterparts (`A_solar_food_consumption`, `r_solar_food_consumption`) are sourced. Consumption-basis analyses are run with `--region global --basis consumption`.
 
 ---
@@ -66,7 +71,7 @@ B_i(t) = s_i \cdot \alpha_i \cdot \text{Gross}_i \cdot \text{ramp}_i(t) \cdot (1
 ```
 
 where:
-- $\alpha_i \in [0, 1]$: Fractional attribution share credited to AI innovations.
+- $\alpha_i \in [0, 1]$: Fractional attribution share credited to AI innovations. Attribution is modeled as a constant counterfactual share rather than an acceleration function; accelerating technology diffusion is documented as future research.
 - $\rho_i \ge 0$: Rebound effect factor (additional water consumption induced by lower technology costs or efficiency gains).
 
 ### Gross Pathway Potentials
@@ -138,6 +143,11 @@ For horizons below 10 years no `p_breakeven_yr*` columns exist; `fig6_knockouts`
 
 ### Break-Even Threshold Surface
 A 2D threshold grid spans the 5th to 95th percentiles of two selected continuous parameters across $G \times G$ cells. For each cell, the break-even probability is computed over shared base draws of all remaining parameters, showing where the break-even probability changes.
+
+The threshold analysis explicitly separates two horizons:
+- **Reporting Horizon ($H_{\text{rep}}$):** The year by which cumulative break-even must have occurred (default: 30 years).
+- **Evaluation Horizon ($H_{\text{eval}}$):** The terminal year through which the cumulative balance must remain non-negative to qualify as sustained break-even (default: 50 years, with $H_{\text{eval}} \ge H_{\text{rep}}$).
+A scenario that becomes positive by year 30 but subsequently turns negative before year 50 does not count as sustained break-even through the 50-year evaluation horizon.
 
 Threshold analysis supports optional range overrides (`--x-range LO HI`, `--y-range LO HI`) and log-spacing (`--log`) for grids spanning multiple orders of magnitude. Axis labels and the x and y columns of `threshold_map.csv` reflect the range actually used. With `--log`, both figure axes use log scales and all range bounds must be strictly positive.
 
