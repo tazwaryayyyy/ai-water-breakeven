@@ -11,11 +11,11 @@ This document provides complete metadata and step-by-step instructions for depos
 - **Repository:** `https://github.com/tazwaryayyyy/ai-water-breakeven`
 - **Release Version:** `v0.3.0`
 - **Release Tag:** `v0.3.0`
-- **Target Commit SHA:** `1845a77f1b01a03a0aaa8a66a6e414f6580b96f3`
+- **Target Commit SHA:** `c47b2af18f5e33758c22556b2f3ebc9c7749f651`
 - **Release Date:** `2026-11-24`
 - **Reproduction Archive File:** `results_final_v0.3.0.zip`
-- **Archive SHA-256:** `02f06a1b6447ad9c047145644d9162c990934113cc07107733600852928f0960`
-- **Archive Size:** 2,244,664 bytes (~2.24 MB)
+- **Archive SHA-256:** `3000470a4abc46126c343f67371b8432b08169626a1d2d6d11b4f84f4642e957`
+- **Archive Size:** 2,244,684 bytes (~2.24 MB)
 
 ---
 
